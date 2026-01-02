@@ -1,6 +1,6 @@
 -- KqzExploitz Script
 -- Features: Desync, Checkpoint, Instant Teleport
--- UI: Custom Grey/Dark Grey/White
+-- UI: Custom UI Library with Tabs and Animated Toggles
 
 -- Variables
 local DesyncEnabled = false
@@ -9,8 +9,12 @@ local SavedCheckpoint = nil
 local TeleportActive = false
 
 -- Constants for UI sizing
-local EXPANDED_SIZE = UDim2.new(0, 320, 0, 300)
-local MINIMIZED_SIZE = UDim2.new(0, 320, 0, 35)
+local EXPANDED_SIZE = UDim2.new(0, 330, 0, 290)
+local MINIMIZED_SIZE = UDim2.new(0, 330, 0, 35)
+
+-- Services
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 -- Utility: Visuals
 local function CreateServerPosVisual(pos)
@@ -153,12 +157,11 @@ local function BuildUI()
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
+    MainFrame.Position = UDim2.new(0.5, -165, 0.5, -145)
     MainFrame.Size = EXPANDED_SIZE
     MainFrame.Active = true
     
     -- Proper Dragging Implementation
-    local UserInputService = game:GetService("UserInputService")
     local dragging, dragInput, dragStart, startPos
 
     local function update(input)
@@ -236,88 +239,148 @@ local function BuildUI()
     MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 4)
 
-    local ContentFrame = Instance.new("ScrollingFrame")
-    ContentFrame.Name = "ContentFrame"
-    ContentFrame.Parent = MainFrame
-    ContentFrame.BackgroundTransparency = 1
-    ContentFrame.Position = UDim2.new(0, 10, 0, 45)
-    ContentFrame.Size = UDim2.new(1, -20, 1, -95)
-    ContentFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
-    ContentFrame.ScrollBarThickness = 2
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Parent = ContentFrame
-    UIListLayout.Padding = UDim.new(0, 10)
+    -- Tab System Setup
+    local TabBar = Instance.new("Frame")
+    TabBar.Name = "TabBar"
+    TabBar.Parent = MainFrame
+    TabBar.Position = UDim2.new(0, 10, 0, 40)
+    TabBar.Size = UDim2.new(1, -20, 0, 32)
+    TabBar.BackgroundTransparency = 1
 
-    -- Force CanvasSize update for scrolling
-    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
-    end)
+    local Tabs = {}
+    local activeTab = nil
 
-    local minimized = false
-    MinimizeButton.MouseButton1Click:Connect(function()
-        minimized = not minimized
-        ContentFrame.Visible = not minimized
-        MainFrame:FindFirstChild("PlayerInfo").Visible = not minimized
-        MainFrame.Size = minimized and MINIMIZED_SIZE or EXPANDED_SIZE
-    end)
+    local function CreateTab(name)
+        local frame = Instance.new("ScrollingFrame")
+        frame.Name = name .. "Tab"
+        frame.Size = UDim2.new(1, -20, 1, -50) -- Adjusted size without player info
+        frame.Position = UDim2.new(0, 10, 0, 80)
+        frame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        frame.ScrollBarThickness = 2
+        frame.BackgroundTransparency = 1
+        frame.Visible = false
+        frame.Parent = MainFrame
+        frame.ZIndex = 5
 
-    -- Player Info Section
-    local PlayerInfo = Instance.new("Frame")
-    PlayerInfo.Name = "PlayerInfo"
-    PlayerInfo.Parent = MainFrame
-    PlayerInfo.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    PlayerInfo.Position = UDim2.new(0, 10, 1, -70)
-    PlayerInfo.Size = UDim2.new(1, -20, 0, 60)
-    PlayerInfo.BackgroundTransparency = 0.5
-    Instance.new("UICorner", PlayerInfo)
+        local layout = Instance.new("UIListLayout", frame)
+        layout.Padding = UDim.new(0, 10)
 
-    local PlayerImage = Instance.new("ImageLabel")
-    PlayerImage.Parent = PlayerInfo
-    PlayerImage.Position = UDim2.new(0, 5, 0, 5)
-    PlayerImage.Size = UDim2.new(0, 50, 0, 50)
-    PlayerImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. game.Players.LocalPlayer.UserId .. "&w=150&h=150"
-    Instance.new("UICorner", PlayerImage).CornerRadius = UDim.new(1, 0)
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            frame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 12)
+        end)
 
-    local PlayerIDLabel = Instance.new("TextLabel")
-    PlayerIDLabel.Parent = PlayerInfo
-    PlayerIDLabel.BackgroundTransparency = 1
-    PlayerIDLabel.Position = UDim2.new(0, 65, 0, 5)
-    PlayerIDLabel.Size = UDim2.new(1, -70, 1, -10)
-    PlayerIDLabel.Font = Enum.Font.GothamMedium
-    PlayerIDLabel.Text = "ID: " .. game.Players.LocalPlayer.UserId
-    PlayerIDLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    PlayerIDLabel.TextSize = 14
-    PlayerIDLabel.TextXAlignment = Enum.TextXAlignment.Left
+        Tabs[name] = frame
+        return frame
+    end
 
-    -- Buttons
-    local function CreateButton(text, callback)
+    local function CreateTabButton(text, tab)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.5, -5, 1, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        btn.Text = text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 13
+        btn.Parent = TabBar
+        Instance.new("UICorner", btn)
+
+        btn.MouseButton1Click:Connect(function()
+            for _, v in pairs(Tabs) do v.Visible = false end
+            tab.Visible = true
+            activeTab = tab
+        end)
+
+        return btn
+    end
+
+    local MainTab = CreateTab("Main")
+    local MiscTab = CreateTab("Misc")
+
+    local mainBtn = CreateTabButton("Main", MainTab)
+    mainBtn.Position = UDim2.new(0, 0, 0, 0)
+    local miscBtn = CreateTabButton("Misc", MiscTab)
+    miscBtn.Position = UDim2.new(0.5, 5, 0, 0)
+
+    MainTab.Visible = true
+    activeTab = MainTab
+
+    -- Library Components
+    local function CreateButton(tab, text, callback)
         local btn = Instance.new("TextButton")
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        btn.Size = UDim2.new(1, 0, 0, 38)
+        btn.Size = UDim2.new(1, 0, 0, 36)
         btn.Font = Enum.Font.GothamSemibold
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.TextSize = 14
-        btn.Parent = ContentFrame
+        btn.Parent = tab
+        btn.ZIndex = 6
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
         btn.MouseButton1Click:Connect(callback)
         return btn
     end
 
-    local function CreateToggle(text, callback)
+    local function CreateToggle(tab, text, callback)
         local enabled = false
-        local btn = CreateButton(text .. ": OFF", function()
+        local btn = CreateButton(tab, text .. ": OFF", function()
             enabled = not enabled
             btn.Text = text .. ": " .. (enabled and "ON" or "OFF")
-            btn.BackgroundColor3 = enabled and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(50, 50, 50)
+
+            TweenService:Create(
+                btn,
+                TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {
+                    BackgroundColor3 = enabled
+                        and Color3.fromRGB(85, 85, 85)
+                        or Color3.fromRGB(50, 50, 50)
+                }
+            ):Play()
+
             callback(enabled)
         end)
     end
 
-    CreateToggle("Desync", function(s) ToggleDesync(s) end)
-    CreateButton("Update Visual Position", function() if DesyncEnabled then CreateServerPosVisual() end end)
-    CreateButton("Save Checkpoint", function() SaveCheckpoint() end)
-    CreateToggle("Instant Teleport", function(s) ToggleTeleport(s) end)
+    -- Feature Setup
+    CreateToggle(MainTab, "Desync", function(s) ToggleDesync(s) end)
+    CreateButton(MainTab, "Update Visual Position", function() if DesyncEnabled then CreateServerPosVisual() end end)
+    CreateButton(MainTab, "Save Checkpoint", SaveCheckpoint)
+    CreateToggle(MainTab, "Instant Teleport", ToggleTeleport)
+    
+    CreateButton(MiscTab, "Rejoin Game", function() game:GetService("TeleportService"):Teleport(game.PlaceId, player) end)
+
+    -- Force initial CanvasSize calculation
+    task.spawn(function()
+        task.wait(0.1)
+        for _, tab in pairs(Tabs) do
+            local layout = tab:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                tab.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 12)
+            end
+        end
+    end)
+
+    -- Minimize Logic
+    local minimized = false
+    MinimizeButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        for _, tab in pairs(Tabs) do
+            if tab == activeTab then
+                tab.Visible = not minimized
+            else
+                tab.Visible = false
+            end
+        end
+        TabBar.Visible = not minimized
+        MainFrame.Size = minimized and MINIMIZED_SIZE or EXPANDED_SIZE
+    end)
+
+    -- Toggle UI Keybind (Right Shift)
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            ScreenGui.Enabled = not ScreenGui.Enabled
+        end
+    end)
 end
 
 -- Initialize
