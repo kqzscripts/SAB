@@ -1,10 +1,15 @@
--- KqzExploitz Script
--- UI Library: Kavo Library
--- Themes: Grey, Dark Grey, White
--- Features: Desync, Checkpoint, Instant Teleport (Bypass)
+-- KqzExploitz Custom UI (No Library)
+-- Grey/Dark Grey/White Theme
+-- Draggable and Organized
 
-local Kavo = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Kavo.CreateLib("KqzExploitz", "Midnight") -- Midnight theme fits the grey/dark grey look
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleBar = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local CloseButton = Instance.new("TextButton")
+local MinimizeButton = Instance.new("TextButton")
+local ContentFrame = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
 
 -- Values
 local DesyncEnabled = false
@@ -12,10 +17,119 @@ local ServerPosPart = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
--- Utility function for visuals
+-- Setup ScreenGui
+ScreenGui.Name = "KqzExploitzUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Setup Main Frame
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Dark Grey
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 300, 0, 350)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- Setup Title Bar
+TitleBar.Name = "TitleBar"
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Grey
+TitleBar.BorderSizePixel = 0
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = TitleBar
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.Size = UDim2.new(1, -70, 1, 0)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "KqzExploitz"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White
+TitleLabel.TextSize = 14
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Close and Minimize
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = TitleBar
+CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+CloseButton.Position = UDim2.new(1, -30, 0, 5)
+CloseButton.Size = UDim2.new(0, 20, 0, 20)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Parent = TitleBar
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinimizeButton.Position = UDim2.new(1, -55, 0, 5)
+MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local minimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    ContentFrame.Visible = not minimized
+    MainFrame.Size = minimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 350)
+end)
+
+-- Content Frame
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Parent = MainFrame
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Position = UDim2.new(0, 5, 0, 35)
+ContentFrame.Size = UDim2.new(1, -10, 1, -40)
+ContentFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+ContentFrame.ScrollBarThickness = 4
+
+UIListLayout.Parent = ContentFrame
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Helper functions for creating elements
+local function CreateButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Size = UDim2.new(1, 0, 0, 35)
+    btn.Font = Enum.Font.Gotham
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 14
+    btn.Parent = ContentFrame
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function CreateToggle(text, callback)
+    local enabled = false
+    local btn = CreateButton(text .. ": OFF", function()
+        enabled = not enabled
+        callback(enabled)
+    end)
+    
+    local originalCallback = callback
+    callback = function(val)
+        enabled = val
+        btn.Text = text .. ": " .. (enabled and "ON" or "OFF")
+        btn.BackgroundColor3 = enabled and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(50, 50, 50)
+        originalCallback(val)
+    end
+    
+    -- Update the button to use the new logic
+    btn.MouseButton1Click:DisconnectAll()
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        callback(enabled)
+    end)
+    
+    return btn
+end
+
+-- Desync Visuals
 local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
-    
     local character = game.Players.LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
@@ -47,15 +161,8 @@ local function CreateServerPosVisual(pos)
     TextLabel.Parent = BillboardGui
 end
 
--- Tabs
-local MainTab = Window:NewTab("Main")
-local BypassTab = Window:NewTab("Bypasses")
-local SettingsTab = Window:NewTab("Settings")
-
--- Main Section
-local ExploitSection = MainTab:NewSection("Exploit Features")
-
-ExploitSection:NewToggle("Desync (Confuse Server)", "Makes server think you are at the white block", function(state)
+-- Feature Implementation
+CreateToggle("Desync", function(state)
     DesyncEnabled = state
     if DesyncEnabled then
         CreateServerPosVisual()
@@ -77,16 +184,11 @@ ExploitSection:NewToggle("Desync (Confuse Server)", "Makes server think you are 
     end
 end)
 
-ExploitSection:NewButton("Update Visual Position", "Updates the white block to current position", function()
-    if DesyncEnabled then
-        CreateServerPosVisual()
-    end
+CreateButton("Update Visual Position", function()
+    if DesyncEnabled then CreateServerPosVisual() end
 end)
 
--- Bypass Section
-local TeleportSection = BypassTab:NewSection("Anti-Cheat Bypasses")
-
-TeleportSection:NewButton("Save Checkpoint", "Saves position for teleporting", function()
+CreateButton("Save Checkpoint", function()
     local character = game.Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         SavedCheckpoint = character.HumanoidRootPart.Position
@@ -94,7 +196,7 @@ TeleportSection:NewButton("Save Checkpoint", "Saves position for teleporting", f
     end
 end)
 
-TeleportSection:NewToggle("Instant Teleport (Carpet Bypass)", "Auto-teleports on Brainrot pickup", function(state)
+CreateToggle("Instant Teleport (Bypass)", function(state)
     TeleportActive = state
     if TeleportActive then
         task.spawn(function()
@@ -118,9 +220,8 @@ TeleportSection:NewToggle("Instant Teleport (Carpet Bypass)", "Auto-teleports on
                                 carpet.Parent = character
                             end
                             task.wait(0.1)
-                            local hrp = character.HumanoidRootPart
-                            hrp.Velocity = Vector3.new(0, 1, 0)
-                            hrp.CFrame = CFrame.new(SavedCheckpoint)
+                            character.HumanoidRootPart.Velocity = Vector3.new(0, 1, 0)
+                            character.HumanoidRootPart.CFrame = CFrame.new(SavedCheckpoint)
                             break
                         end
                     end
@@ -129,11 +230,4 @@ TeleportSection:NewToggle("Instant Teleport (Carpet Bypass)", "Auto-teleports on
             end
         end)
     end
-end)
-
--- Settings Section
-local UISection = SettingsTab:NewSection("UI Settings")
-
-UISection:NewKeybind("Toggle UI", "Key to hide/show UI", Enum.KeyCode.RightControl, function()
-	Kavo:ToggleUI()
 end)
