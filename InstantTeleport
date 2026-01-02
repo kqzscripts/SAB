@@ -1,204 +1,387 @@
--- KqzExploitz | Bunni.lol FIXED UI
--- Game: Steal a Brainrot
--- Executor: Bunni.lol
--- Status: WORKING
+-- KqzExploitz Script
+-- Features: Desync, Checkpoint, Instant Teleport
+-- UI: Custom UI Library with Tabs and Animated Toggles
 
--- =========================
--- SERVICES & PLAYER
--- =========================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
-
--- =========================
--- CLEAN OLD UI
--- =========================
-pcall(function()
-    local old = CoreGui:FindFirstChild("KqzExploitzUI")
-    if old then old:Destroy() end
-end)
-
--- =========================
--- STATE VARIABLES
--- =========================
+-- Variables
 local DesyncEnabled = false
-local TeleportActive = false
-local SavedCheckpoint = nil
 local ServerPosPart = nil
+local SavedCheckpoint = nil
+local TeleportActive = false
 
--- =========================
--- CHARACTER GETTER (RESPAWN SAFE)
--- =========================
-local function getChar()
-    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-end
+-- Constants for UI sizing
+local EXPANDED_SIZE = UDim2.new(0, 330, 0, 290)
+local MINIMIZED_SIZE = UDim2.new(0, 330, 0, 35)
 
--- =========================
--- VISUAL CHECKPOINT
--- =========================
+-- Services
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Utility: Visuals
 local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
-
-    local char = getChar()
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
     ServerPosPart = Instance.new("Part")
+    ServerPosPart.Name = "ServerPositionVisual"
+    ServerPosPart.Size = Vector3.new(2, 6, 2)
+    ServerPosPart.Color = Color3.fromRGB(255, 255, 255)
+    ServerPosPart.Material = Enum.Material.Neon
     ServerPosPart.Anchored = true
     ServerPosPart.CanCollide = false
-    ServerPosPart.Size = Vector3.new(2, 2, 2)
-    ServerPosPart.Material = Enum.Material.Neon
-    ServerPosPart.Color = Color3.fromRGB(255,255,255)
-    ServerPosPart.Position = pos or hrp.Position
-    ServerPosPart.Parent = workspace
-
-    local mesh = Instance.new("SpecialMesh", ServerPosPart)
-    mesh.MeshType = Enum.MeshType.Sphere
-
-    local bill = Instance.new("BillboardGui", ServerPosPart)
-    bill.Size = UDim2.new(0,200,0,40)
-    bill.AlwaysOnTop = true
-
-    local txt = Instance.new("TextLabel", bill)
-    txt.Size = UDim2.new(1,0,1,0)
-    txt.BackgroundTransparency = 1
-    txt.Text = "Checkpoint"
-    txt.Font = Enum.Font.GothamBold
-    txt.TextSize = 18
-    txt.TextColor3 = Color3.new(1,1,1)
+    ServerPosPart.Position = pos or character.HumanoidRootPart.Position
+    ServerPosPart.Parent = game.Workspace
+    
+    local SpecialMesh = Instance.new("SpecialMesh")
+    SpecialMesh.MeshType = Enum.MeshType.Sphere
+    SpecialMesh.Scale = Vector3.new(1.2, 1, 1.2)
+    SpecialMesh.Parent = ServerPosPart
+    
+    local BillboardGui = Instance.new("BillboardGui")
+    BillboardGui.Size = UDim2.new(0, 200, 0, 50)
+    BillboardGui.Adornee = ServerPosPart
+    BillboardGui.AlwaysOnTop = true
+    BillboardGui.ExtentsOffset = Vector3.new(0, 3, 0)
+    BillboardGui.Parent = ServerPosPart
+    
+    local TextLabel = Instance.new("TextLabel")
+    TextLabel.Size = UDim2.new(1, 0, 1, 0)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Text = "Checkpoint / Server Pos"
+    TextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    TextLabel.TextStrokeTransparency = 0
+    TextLabel.TextSize = 20
+    TextLabel.Font = Enum.Font.GothamBold
+    TextLabel.Parent = BillboardGui
 end
 
--- =========================
--- DESYNC
--- =========================
+-- Logic: Desync
 local function ToggleDesync(state)
     DesyncEnabled = state
-
-    if not state then
-        if ServerPosPart then ServerPosPart:Destroy() end
-        return
-    end
-
-    CreateServerPosVisual()
-
-    task.spawn(function()
-        while DesyncEnabled do
-            local char = getChar()
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local oldVel = hrp.Velocity
-                hrp.Velocity = Vector3.new(0, -600, 0)
-                RunService.Heartbeat:Wait()
-                hrp.Velocity = oldVel
+    if DesyncEnabled then
+        CreateServerPosVisual()
+        task.spawn(function()
+            local hb = game:GetService("RunService").Heartbeat
+            while DesyncEnabled do
+                local char = game.Players.LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local oldVelocity = char.HumanoidRootPart.Velocity
+                    char.HumanoidRootPart.Velocity = Vector3.new(0, -500, 0)
+                    hb:Wait()
+                    char.HumanoidRootPart.Velocity = oldVelocity
+                end
+                task.wait()
             end
-            task.wait()
-        end
-    end)
+        end)
+    else
+        if ServerPosPart then ServerPosPart:Destroy() end
+    end
 end
 
--- =========================
--- SAVE CHECKPOINT
--- =========================
+-- Logic: Checkpoint
 local function SaveCheckpoint()
-    local char = getChar()
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        SavedCheckpoint = hrp.Position
+    local character = game.Players.LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        SavedCheckpoint = character.HumanoidRootPart.Position
         CreateServerPosVisual(SavedCheckpoint)
     end
 end
 
--- =========================
--- INSTANT TELEPORT (BRAINROT GAME)
--- =========================
+-- Logic: Teleport
 local function ToggleTeleport(state)
     TeleportActive = state
-    if not state then return end
-
-    task.spawn(function()
-        while TeleportActive do
-            local char = getChar()
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-
-            if hrp and SavedCheckpoint then
-                hrp.CFrame = CFrame.new(SavedCheckpoint)
-                hrp.Velocity = Vector3.zero
+    if TeleportActive then
+        task.spawn(function()
+            while TeleportActive do
+                local character = game.Players.LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") and SavedCheckpoint then
+                    local hasBrainrot = false
+                    for _, v in pairs(character:GetChildren()) do
+                        if v.Name:lower():find("brainrot") then
+                            hasBrainrot = true
+                            break
+                        end
+                    end
+                    
+                    if hasBrainrot then
+                        local backpack = game.Players.LocalPlayer.Backpack
+                        local carpet = backpack:FindFirstChild("Flying Carpet") or character:FindFirstChild("Flying Carpet")
+                        
+                        if carpet then
+                            if carpet.Parent == backpack then
+                                carpet.Parent = character
+                            end
+                            task.wait(0.1)
+                            character.HumanoidRootPart.Velocity = Vector3.new(0, 1, 0)
+                            character.HumanoidRootPart.CFrame = CFrame.new(SavedCheckpoint)
+                            break
+                        end
+                    end
+                end
+                task.wait(0.5)
             end
-            task.wait(0.4)
+        end)
+    end
+end
+
+-- UI Component
+local function BuildUI()
+    local player = game.Players.LocalPlayer
+    local gui = player:WaitForChild("PlayerGui", 10)
+
+    if not gui then
+        warn("PlayerGui missing")
+        return
+    end
+
+    local existing = gui:FindFirstChild("KqzExploitzUI")
+    if existing then
+        existing:Destroy()
+    end
+    
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KqzExploitzUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = gui
+
+    pcall(function()
+        ScreenGui.IgnoreGuiInset = true
+        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    end)
+
+    if getgenv and getgenv().syn and getgenv().syn.protect_gui then
+        getgenv().syn.protect_gui(ScreenGui)
+    end
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.Position = UDim2.new(0.5, -165, 0.5, -145)
+    MainFrame.Size = EXPANDED_SIZE
+    MainFrame.Active = true
+    
+    -- Proper Dragging Implementation
+    local dragging, dragInput, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    MainFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+
+    local MainCorner = Instance.new("UICorner", MainFrame)
+
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Name = "TitleBar"
+    TitleBar.Parent = MainFrame
+    TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    TitleBar.Size = UDim2.new(1, 0, 0, 35)
+    local TitleCorner = Instance.new("UICorner", TitleBar)
+
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Parent = TitleBar
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+    TitleLabel.Size = UDim2.new(1, -70, 1, 0)
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.Text = "KqzExploitz"
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = TitleBar
+    CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    CloseButton.Position = UDim2.new(1, -32, 0, 7)
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Text = "X"
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 4)
+    CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+    local MinimizeButton = Instance.new("TextButton")
+    MinimizeButton.Name = "MinimizeButton"
+    MinimizeButton.Parent = TitleBar
+    MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    MinimizeButton.Position = UDim2.new(1, -57, 0, 7)
+    MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
+    MinimizeButton.Text = "-"
+    MinimizeButton.Font = Enum.Font.GothamBold
+    MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 4)
+
+    -- Tab System Setup
+    local TabBar = Instance.new("Frame")
+    TabBar.Name = "TabBar"
+    TabBar.Parent = MainFrame
+    TabBar.Position = UDim2.new(0, 10, 0, 40)
+    TabBar.Size = UDim2.new(1, -20, 0, 32)
+    TabBar.BackgroundTransparency = 1
+
+    local Tabs = {}
+    local activeTab = nil
+
+    local function CreateTab(name)
+        local frame = Instance.new("ScrollingFrame")
+        frame.Name = name .. "Tab"
+        frame.Size = UDim2.new(1, -20, 1, -50) -- Adjusted size without player info
+        frame.Position = UDim2.new(0, 10, 0, 80)
+        frame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        frame.ScrollBarThickness = 2
+        frame.BackgroundTransparency = 1
+        frame.Visible = false
+        frame.Parent = MainFrame
+        frame.ZIndex = 5
+
+        local layout = Instance.new("UIListLayout", frame)
+        layout.Padding = UDim.new(0, 10)
+
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            frame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 12)
+        end)
+
+        Tabs[name] = frame
+        return frame
+    end
+
+    local function CreateTabButton(text, tab)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.5, -5, 1, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        btn.Text = text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 13
+        btn.Parent = TabBar
+        Instance.new("UICorner", btn)
+
+        btn.MouseButton1Click:Connect(function()
+            for _, v in pairs(Tabs) do v.Visible = false end
+            tab.Visible = true
+            activeTab = tab
+        end)
+
+        return btn
+    end
+
+    local MainTab = CreateTab("Main")
+    local MiscTab = CreateTab("Misc")
+
+    local mainBtn = CreateTabButton("Main", MainTab)
+    mainBtn.Position = UDim2.new(0, 0, 0, 0)
+    local miscBtn = CreateTabButton("Misc", MiscTab)
+    miscBtn.Position = UDim2.new(0.5, 5, 0, 0)
+
+    MainTab.Visible = true
+    activeTab = MainTab
+
+    -- Library Components
+    local function CreateButton(tab, text, callback)
+        local btn = Instance.new("TextButton")
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.Size = UDim2.new(1, 0, 0, 36)
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 14
+        btn.Parent = tab
+        btn.ZIndex = 6
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(callback)
+        return btn
+    end
+
+    local function CreateToggle(tab, text, callback)
+        local enabled = false
+        local btn = CreateButton(tab, text .. ": OFF", function()
+            enabled = not enabled
+            btn.Text = text .. ": " .. (enabled and "ON" or "OFF")
+
+            TweenService:Create(
+                btn,
+                TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {
+                    BackgroundColor3 = enabled
+                        and Color3.fromRGB(85, 85, 85)
+                        or Color3.fromRGB(50, 50, 50)
+                }
+            ):Play()
+
+            callback(enabled)
+        end)
+    end
+
+    -- Feature Setup
+    CreateToggle(MainTab, "Desync", function(s) ToggleDesync(s) end)
+    CreateButton(MainTab, "Update Visual Position", function() if DesyncEnabled then CreateServerPosVisual() end end)
+    CreateButton(MainTab, "Save Checkpoint", SaveCheckpoint)
+    CreateToggle(MainTab, "Instant Teleport", ToggleTeleport)
+    
+    CreateButton(MiscTab, "Rejoin Game", function() game:GetService("TeleportService"):Teleport(game.PlaceId, player) end)
+
+    -- Force initial CanvasSize calculation
+    task.spawn(function()
+        task.wait(0.1)
+        for _, tab in pairs(Tabs) do
+            local layout = tab:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                tab.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 12)
+            end
+        end
+    end)
+
+    -- Minimize Logic
+    local minimized = false
+    MinimizeButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        for _, tab in pairs(Tabs) do
+            if tab == activeTab then
+                tab.Visible = not minimized
+            else
+                tab.Visible = false
+            end
+        end
+        TabBar.Visible = not minimized
+        MainFrame.Size = minimized and MINIMIZED_SIZE or EXPANDED_SIZE
+    end)
+
+    -- Toggle UI Keybind (Right Shift)
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            ScreenGui.Enabled = not ScreenGui.Enabled
         end
     end)
 end
 
--- =========================
--- UI CREATION (COREGUI FIX)
--- =========================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KqzExploitzUI"
-ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999999
-
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0,260,0,360)
-Main.Position = UDim2.new(0.5,-130,0.5,-180)
-Main.BackgroundColor3 = Color3.fromRGB(30,30,30)
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner", Main)
-
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundColor3 = Color3.fromRGB(45,45,45)
-Title.Text = "KqzExploitz"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Instance.new("UICorner", Title)
-
-local Content = Instance.new("UIListLayout", Main)
-Content.Padding = UDim.new(0,10)
-Content.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Content.VerticalAlignment = Enum.VerticalAlignment.Top
-
--- spacer
-local pad = Instance.new("Frame", Main)
-pad.Size = UDim2.new(1,0,0,50)
-pad.BackgroundTransparency = 1
-
--- =========================
--- BUTTON MAKER
--- =========================
-local function Button(text, callback)
-    local b = Instance.new("TextButton", Main)
-    b.Size = UDim2.new(0.9,0,0,45)
-    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
-    b.TextColor3 = Color3.new(1,1,1)
-    b.Font = Enum.Font.GothamSemibold
-    b.TextSize = 15
-    b.Text = text
-    Instance.new("UICorner", b)
-
-    b.MouseButton1Click:Connect(callback)
-    return b
-end
-
-local function Toggle(text, func)
-    local on = false
-    Button(text..": OFF", function(btn)
-        on = not on
-        btn.Text = text..": "..(on and "ON" or "OFF")
-        btn.BackgroundColor3 = on and Color3.fromRGB(80,80,80) or Color3.fromRGB(55,55,55)
-        func(on)
-    end)
-end
-
--- =========================
--- UI BUTTONS
--- =========================
-Toggle("Desync", ToggleDesync)
-Button("Save Checkpoint", SaveCheckpoint)
-Toggle("Instant Teleport", ToggleTeleport)
-
-print("[KqzExploitz] UI Loaded Successfully")
+-- Initialize
+BuildUI()
