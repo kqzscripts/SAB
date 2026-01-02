@@ -8,6 +8,10 @@ local ServerPosPart = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
+-- Constants for UI sizing
+local EXPANDED_SIZE = UDim2.new(0, 320, 0, 300)
+local MINIMIZED_SIZE = UDim2.new(0, 320, 0, 35)
+
 -- Utility: Visuals
 local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
@@ -149,11 +153,11 @@ local function BuildUI()
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    MainFrame.Position = UDim2.new(0.5, -125, 0.5, -180)
-    MainFrame.Size = UDim2.new(0, 250, 0, 380)
+    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
+    MainFrame.Size = EXPANDED_SIZE
     MainFrame.Active = true
     
-    -- Proper Dragging Implementation (Replacement for Deprecated .Draggable)
+    -- Proper Dragging Implementation
     local UserInputService = game:GetService("UserInputService")
     local dragging, dragInput, dragStart, startPos
 
@@ -237,22 +241,29 @@ local function BuildUI()
     ContentFrame.Parent = MainFrame
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.Position = UDim2.new(0, 10, 0, 45)
-    ContentFrame.Size = UDim2.new(1, -20, 1, -125)
+    ContentFrame.Size = UDim2.new(1, -20, 1, -95)
     ContentFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
     ContentFrame.ScrollBarThickness = 2
     local UIListLayout = Instance.new("UIListLayout")
     UIListLayout.Parent = ContentFrame
-    UIListLayout.Padding = UDim.new(0, 8)
+    UIListLayout.Padding = UDim.new(0, 10)
+
+    -- Force CanvasSize update for scrolling
+    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    end)
 
     local minimized = false
     MinimizeButton.MouseButton1Click:Connect(function()
         minimized = not minimized
         ContentFrame.Visible = not minimized
-        MainFrame.Size = minimized and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 380)
+        MainFrame:FindFirstChild("PlayerInfo").Visible = not minimized
+        MainFrame.Size = minimized and MINIMIZED_SIZE or EXPANDED_SIZE
     end)
 
     -- Player Info Section
     local PlayerInfo = Instance.new("Frame")
+    PlayerInfo.Name = "PlayerInfo"
     PlayerInfo.Parent = MainFrame
     PlayerInfo.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     PlayerInfo.Position = UDim2.new(0, 10, 1, -70)
@@ -282,11 +293,11 @@ local function BuildUI()
     local function CreateButton(text, callback)
         local btn = Instance.new("TextButton")
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        btn.Size = UDim2.new(1, 0, 0, 45)
+        btn.Size = UDim2.new(1, 0, 0, 38)
         btn.Font = Enum.Font.GothamSemibold
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextSize = 15
+        btn.TextSize = 14
         btn.Parent = ContentFrame
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
         btn.MouseButton1Click:Connect(callback)
