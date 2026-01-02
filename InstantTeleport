@@ -1,10 +1,18 @@
+-- KqzExploitz Script
+-- UI Library: Kavo Library
+-- Themes: Grey, Dark Grey, White
+-- Features: Desync, Checkpoint, Instant Teleport (Bypass)
+
+local Kavo = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Kavo.CreateLib("KqzExploitz", "Midnight") -- Midnight theme fits the grey/dark grey look
+
 -- Values
 local DesyncEnabled = false
 local ServerPosPart = nil
-local ServerPosLabel = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
+-- Utility function for visuals
 local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
     
@@ -39,170 +47,93 @@ local function CreateServerPosVisual(pos)
     TextLabel.Parent = BillboardGui
 end
 
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
-local Window = OrionLib:MakeWindow({
-    Name = "KqzExploitz", 
-    HidePremium = false, 
-    SaveConfig = true, 
-    ConfigFolder = "OrionTest",
-    IntroText = "KqzExploitz",
-    IntroIcon = "rbxassetid://4483345998"
-})
+-- Tabs
+local MainTab = Window:NewTab("Main")
+local BypassTab = Window:NewTab("Bypasses")
+local SettingsTab = Window:NewTab("Settings")
 
-local MainTab = Window:MakeTab({
-        Name = "Shop / Main",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-})
+-- Main Section
+local ExploitSection = MainTab:NewSection("Exploit Features")
 
-local BypassTab = Window:MakeTab({
-        Name = "Bypasses",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-})
-
-local SettingsTab = Window:MakeTab({
-        Name = "Settings",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-})
-
-local Section = MainTab:AddSection({
-        Name = "Exploit Features"
-})
-
-local TeleportSection = BypassTab:AddSection({
-        Name = "Anti-Cheat Bypasses"
-})
-
-Section:AddToggle({
-        Name = "Desync (Confuse Server)",
-        Default = false,
-        Callback = function(Value)
-                DesyncEnabled = Value
-        if DesyncEnabled then
-            CreateServerPosVisual()
-            OrionLib:MakeNotification({
-                Name = "Desync Active",
-                Content = "The server thinks you are at the white block.",
-                Image = "rbxassetid://4483345998",
-                Time = 5
-            })
-            
-            task.spawn(function()
-                local hb = game:GetService("RunService").Heartbeat
-                while DesyncEnabled do
-                    local char = game.Players.LocalPlayer.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        local oldVelocity = char.HumanoidRootPart.Velocity
-                        char.HumanoidRootPart.Velocity = Vector3.new(0, -500, 0)
-                        hb:Wait()
-                        char.HumanoidRootPart.Velocity = oldVelocity
-                    end
-                    task.wait()
+ExploitSection:NewToggle("Desync (Confuse Server)", "Makes server think you are at the white block", function(state)
+    DesyncEnabled = state
+    if DesyncEnabled then
+        CreateServerPosVisual()
+        task.spawn(function()
+            local hb = game:GetService("RunService").Heartbeat
+            while DesyncEnabled do
+                local char = game.Players.LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local oldVelocity = char.HumanoidRootPart.Velocity
+                    char.HumanoidRootPart.Velocity = Vector3.new(0, -500, 0)
+                    hb:Wait()
+                    char.HumanoidRootPart.Velocity = oldVelocity
                 end
-            end)
-        else
-            if ServerPosPart then ServerPosPart:Destroy() end
-        end
-        end    
-})
+                task.wait()
+            end
+        end)
+    else
+        if ServerPosPart then ServerPosPart:Destroy() end
+    end
+end)
 
-Section:AddButton({
-        Name = "Update Visual Position",
-        Callback = function()
-        if DesyncEnabled then
-            CreateServerPosVisual()
-        end
-        end    
-})
+ExploitSection:NewButton("Update Visual Position", "Updates the white block to current position", function()
+    if DesyncEnabled then
+        CreateServerPosVisual()
+    end
+end)
 
-TeleportSection:AddButton({
-        Name = "Save Checkpoint",
-        Callback = function()
-        local character = game.Players.LocalPlayer.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            SavedCheckpoint = character.HumanoidRootPart.Position
-            CreateServerPosVisual(SavedCheckpoint)
-            OrionLib:MakeNotification({
-                Name = "Checkpoint Saved",
-                Content = "Position stored for Instant Teleport.",
-                Time = 3
-            })
-        end
-        end    
-})
+-- Bypass Section
+local TeleportSection = BypassTab:NewSection("Anti-Cheat Bypasses")
 
-TeleportSection:AddToggle({
-        Name = "Instant Teleport (Carpet Bypass)",
-        Default = false,
-        Callback = function(Value)
-                TeleportActive = Value
-        if TeleportActive then
-            OrionLib:MakeNotification({
-                Name = "Auto-Teleport Armed",
-                Content = "Waiting for Brainrot pickup...",
-                Time = 5
-            })
-            
-            task.spawn(function()
-                while TeleportActive do
-                    local character = game.Players.LocalPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") and SavedCheckpoint then
-                        local hasBrainrot = false
-                        for _, v in pairs(character:GetChildren()) do
-                            if v.Name:lower():find("brainrot") then
-                                hasBrainrot = true
-                                break
-                            end
+TeleportSection:NewButton("Save Checkpoint", "Saves position for teleporting", function()
+    local character = game.Players.LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        SavedCheckpoint = character.HumanoidRootPart.Position
+        CreateServerPosVisual(SavedCheckpoint)
+    end
+end)
+
+TeleportSection:NewToggle("Instant Teleport (Carpet Bypass)", "Auto-teleports on Brainrot pickup", function(state)
+    TeleportActive = state
+    if TeleportActive then
+        task.spawn(function()
+            while TeleportActive do
+                local character = game.Players.LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") and SavedCheckpoint then
+                    local hasBrainrot = false
+                    for _, v in pairs(character:GetChildren()) do
+                        if v.Name:lower():find("brainrot") then
+                            hasBrainrot = true
+                            break
                         end
+                    end
+                    
+                    if hasBrainrot then
+                        local backpack = game.Players.LocalPlayer.Backpack
+                        local carpet = backpack:FindFirstChild("Flying Carpet") or character:FindFirstChild("Flying Carpet")
                         
-                        if hasBrainrot then
-                            local backpack = game.Players.LocalPlayer.Backpack
-                            local carpet = backpack:FindFirstChild("Flying Carpet") or character:FindFirstChild("Flying Carpet")
-                            
-                            if carpet then
-                                if carpet.Parent == backpack then
-                                    carpet.Parent = character
-                                end
-                                
-                                task.wait(0.1)
-                                
-                                local hrp = character.HumanoidRootPart
-                                hrp.Velocity = Vector3.new(0, 1, 0)
-                                hrp.CFrame = CFrame.new(SavedCheckpoint)
-                                
-                                OrionLib:MakeNotification({
-                                    Name = "Success",
-                                    Content = "Teleported to Checkpoint with Carpet Anchor.",
-                                    Time = 3
-                                })
-                                break
+                        if carpet then
+                            if carpet.Parent == backpack then
+                                carpet.Parent = character
                             end
+                            task.wait(0.1)
+                            local hrp = character.HumanoidRootPart
+                            hrp.Velocity = Vector3.new(0, 1, 0)
+                            hrp.CFrame = CFrame.new(SavedCheckpoint)
+                            break
                         end
                     end
-                    task.wait(0.5)
                 end
-            end)
-        end
-        end    
-})
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
 
-SettingsTab:AddKeybind({
-        Name = "Toggle Menu Visibility",
-        Default = Enum.KeyCode.RightControl,
-        Hold = false,
-        Callback = function()
-                OrionLib:ToggleUI()
-        end    
-})
+-- Settings Section
+local UISection = SettingsTab:NewSection("UI Settings")
 
-SettingsTab:AddButton({
-        Name = "Close Script Permanently",
-        Callback = function()
-                OrionLib:Destroy()
-        end    
-})
-
-OrionLib:Init()
-
+UISection:NewKeybind("Toggle UI", "Key to hide/show UI", Enum.KeyCode.RightControl, function()
+	Kavo:ToggleUI()
+end)
