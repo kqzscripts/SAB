@@ -1,69 +1,41 @@
---[[ 
-    Kqz Utility Hub (FIXED & UPGRADED)
-    Game: Steal a Brainrot / Bunni.lol
-    Status: Working Client-Side Features
-]]
+-- KqzExploitz Utility Hub
+-- Features: Save Checkpoint, Teleport Back (Carpet Required)
+-- UI: Grey / Dark Grey / White
 
--- ================= SERVICES =================
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
-local TeleportService = game:GetService("TeleportService")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
-
 local player = Players.LocalPlayer
 
 -- ================= STATE =================
-local State = {
-    WalkSpeed = false,
-    JumpPower = false,
-    SavedCFrame = nil,
-    Alive = false
-}
+local SavedPosition = nil
 
--- ================= CHARACTER HANDLING =================
-local character, humanoid, hrp
-
-local function SetupCharacter(char)
-    character = char
-    humanoid = char:WaitForChild("Humanoid", 5)
-    hrp = char:WaitForChild("HumanoidRootPart", 5)
-    State.Alive = humanoid ~= nil and hrp ~= nil
-end
-
-if player.Character then
-    SetupCharacter(player.Character)
-end
-
-player.CharacterAdded:Connect(SetupCharacter)
-
--- ================= CLEANUP GUI =================
-local old = CoreGui:FindFirstChild("KqzUtilityHub")
+-- ================= CLEANUP =================
+local pg = player:WaitForChild("PlayerGui")
+local old = pg:FindFirstChild("KqzExploitzUI")
 if old then old:Destroy() end
 
 -- ================= GUI =================
 local gui = Instance.new("ScreenGui")
-gui.Name = "KqzUtilityHub"
+gui.Name = "KqzExploitzUI"
 gui.ResetOnSpawn = false
-gui.Parent = CoreGui
+gui.Parent = pg
 
 local Main = Instance.new("Frame", gui)
-Main.Size = UDim2.new(0, 330, 0, 320)
+Main.Size = UDim2.new(0, 320, 0, 220)
 Main.Position = UDim2.fromScale(0.5, 0.5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Main.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 Main.Active = true
 Instance.new("UICorner", Main)
 
--- Drag
+-- ================= DRAG =================
 do
-    local dragging, start, pos
+    local dragging, startPos, startInput
     Main.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            start = i.Position
-            pos = Main.Position
+            startInput = i.Position
+            startPos = Main.Position
             i.Changed:Connect(function()
                 if i.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -71,108 +43,122 @@ do
             end)
         end
     end)
+
     UIS.InputChanged:Connect(function(i)
-        if dragging then
-            local delta = i.Position - start
-            Main.Position = pos + UDim2.fromOffset(delta.X, delta.Y)
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = i.Position - startInput
+            Main.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
         end
     end)
 end
+
+-- ================= TITLE BAR =================
+local Title = Instance.new("Frame", Main)
+Title.Size = UDim2.new(1, 0, 0, 36)
+Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Instance.new("UICorner", Title)
+
+local TitleText = Instance.new("TextLabel", Title)
+TitleText.Size = UDim2.new(1, -70, 1, 0)
+TitleText.Position = UDim2.new(0, 12, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "KqzExploitz"
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 16
+TitleText.TextColor3 = Color3.new(1, 1, 1)
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local Close = Instance.new("TextButton", Title)
+Close.Size = UDim2.new(0, 22, 0, 22)
+Close.Position = UDim2.new(1, -28, 0, 7)
+Close.Text = "X"
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 14
+Close.BackgroundColor3 = Color3.fromRGB(170, 60, 60)
+Close.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", Close)
+
+Close.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
 
 -- ================= CONTENT =================
 local Content = Instance.new("Frame", Main)
-Content.Position = UDim2.new(0,10,0,10)
-Content.Size = UDim2.new(1,-20,1,-20)
+Content.Position = UDim2.new(0, 10, 0, 50)
+Content.Size = UDim2.new(1, -20, 1, -60)
 Content.BackgroundTransparency = 1
 
 local layout = Instance.new("UIListLayout", Content)
-layout.Padding = UDim.new(0,8)
+layout.Padding = UDim.new(0, 10)
 
+-- ================= HELPERS =================
 local function Button(text, callback)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1,0,0,38)
+    b.Size = UDim2.new(1, 0, 0, 42)
     b.Text = text
-    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
-    b.TextColor3 = Color3.new(1,1,1)
-    b.Font = Enum.Font.GothamBold
+    b.Font = Enum.Font.GothamSemibold
     b.TextSize = 14
+    b.TextColor3 = Color3.new(1,1,1)
+    b.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(callback)
-    return b
 end
 
-local function Toggle(name, onToggle)
-    local enabled = false
-    local b
-    b = Button(name .. ": OFF", function()
-        enabled = not enabled
-        b.Text = name .. ": " .. (enabled and "ON" or "OFF")
-        b.BackgroundColor3 = enabled and Color3.fromRGB(80,80,80) or Color3.fromRGB(55,55,55)
-        onToggle(enabled)
-    end)
+-- ================= DETECTION =================
+local function HasCarriedObject()
+    local char = player.Character
+    if not char then return false end
+
+    for _, v in ipairs(char:GetChildren()) do
+        if v:IsA("Model") and v ~= char then
+            return true
+        end
+        if v:IsA("BasePart") and not v.Name:lower():find("humanoid") then
+            if not v.Name:lower():find("carpet") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function GetFlyingCarpet()
+    local char = player.Character
+    if not char then return nil end
+
+    for _, v in ipairs(char:GetChildren()) do
+        if v:IsA("Tool") and v.Name:lower():find("carpet") then
+            return v
+        end
+    end
 end
 
 -- ================= FEATURES =================
-
--- WalkSpeed (ENFORCED)
-Toggle("WalkSpeed", function(v)
-    State.WalkSpeed = v
-end)
-
--- JumpPower (ENFORCED)
-Toggle("JumpPower", function(v)
-    State.JumpPower = v
-end)
-
--- Save Checkpoint
 Button("Save Checkpoint", function()
-    if State.Alive then
-        State.SavedCFrame = hrp.CFrame
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        SavedPosition = hrp.CFrame
+        warn("[KqzExploitz] Checkpoint saved")
     end
 end)
 
--- Teleport to Checkpoint (SAFE)
-Button("Teleport to Checkpoint", function()
-    if State.Alive and State.SavedCFrame then
-        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+Button("Teleport To Checkpoint", function()
+    if not SavedPosition then return end
+    if not HasCarriedObject() then return end
+
+    local carpet = GetFlyingCarpet()
+    if not carpet then return end
+
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
+
+    if hrp and hum then
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
         hrp.Velocity = Vector3.zero
-        hrp.CFrame = State.SavedCFrame
+        hrp.CFrame = SavedPosition
         task.wait()
-        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        hum:ChangeState(Enum.HumanoidStateType.Running)
     end
 end)
 
--- FPS Boost
-Button("FPS Boost", function()
-    for _,v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("PostEffect") then
-            v.Enabled = false
-        end
-    end
-end)
-
--- Rejoin
-Button("Rejoin Server", function()
-    TeleportService:Teleport(game.PlaceId, player)
-end)
-
--- ================= ENFORCE LOOP =================
-RunService.Heartbeat:Connect(function()
-    if State.Alive and humanoid then
-        if State.WalkSpeed then
-            humanoid.WalkSpeed = 32
-        end
-        if State.JumpPower then
-            humanoid.JumpPower = 80
-        end
-    end
-end)
-
--- Toggle UI
-UIS.InputBegan:Connect(function(i,gp)
-    if not gp and i.KeyCode == Enum.KeyCode.RightShift then
-        gui.Enabled = not gui.Enabled
-    end
-end)
-
-print("[Kqz Utility Hub] Loaded successfully")
+print("[KqzExploitz] Loaded successfully")
