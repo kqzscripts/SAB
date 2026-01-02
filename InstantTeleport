@@ -1,15 +1,14 @@
--- KqzExploitz Custom UI (No Library)
--- Grey/Dark Grey/White Theme
--- Draggable and Organized
+-- KqzExploitz Knit Implementation
+-- Framework: Knit (Service-Based Architecture)
 
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local TitleBar = Instance.new("Frame")
-local TitleLabel = Instance.new("TextLabel")
-local CloseButton = Instance.new("TextButton")
-local MinimizeButton = Instance.new("TextButton")
-local ContentFrame = Instance.new("ScrollingFrame")
-local UIListLayout = Instance.new("UIListLayout")
+-- Ensure Knit is available (standard bootstrapper)
+local Knit = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/Knit/main/src/Knit.lua"))()
+
+-- Define the Exploit Service
+local ExploitService = Knit.CreateService {
+    Name = "ExploitService",
+    Client = {},
+}
 
 -- Values
 local DesyncEnabled = false
@@ -17,118 +16,8 @@ local ServerPosPart = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
--- Setup ScreenGui
-ScreenGui.Name = "KqzExploitzUI"
-ScreenGui.Parent = game:GetService("CoreGui")
-ScreenGui.ResetOnSpawn = false
-
--- Setup Main Frame
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Dark Grey
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -150)
-MainFrame.Size = UDim2.new(0, 300, 0, 350)
-MainFrame.Active = true
-MainFrame.Draggable = true
-
--- Setup Title Bar
-TitleBar.Name = "TitleBar"
-TitleBar.Parent = MainFrame
-TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Grey
-TitleBar.BorderSizePixel = 0
-TitleBar.Size = UDim2.new(1, 0, 0, 30)
-
-TitleLabel.Name = "TitleLabel"
-TitleLabel.Parent = TitleBar
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Position = UDim2.new(0, 10, 0, 0)
-TitleLabel.Size = UDim2.new(1, -70, 1, 0)
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "KqzExploitz"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White
-TitleLabel.TextSize = 14
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
--- Close and Minimize
-CloseButton.Name = "CloseButton"
-CloseButton.Parent = TitleBar
-CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-CloseButton.Position = UDim2.new(1, -30, 0, 5)
-CloseButton.Size = UDim2.new(0, 20, 0, 20)
-CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-MinimizeButton.Name = "MinimizeButton"
-MinimizeButton.Parent = TitleBar
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-MinimizeButton.Position = UDim2.new(1, -55, 0, 5)
-MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
-MinimizeButton.Text = "-"
-MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-local minimized = false
-MinimizeButton.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    ContentFrame.Visible = not minimized
-    MainFrame.Size = minimized and UDim2.new(0, 300, 0, 30) or UDim2.new(0, 300, 0, 350)
-end)
-
--- Content Frame
-ContentFrame.Name = "ContentFrame"
-ContentFrame.Parent = MainFrame
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Position = UDim2.new(0, 5, 0, 35)
-ContentFrame.Size = UDim2.new(1, -10, 1, -40)
-ContentFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
-ContentFrame.ScrollBarThickness = 4
-
-UIListLayout.Parent = ContentFrame
-UIListLayout.Padding = UDim.new(0, 5)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Helper functions for creating elements
-local function CreateButton(text, callback)
-    local btn = Instance.new("TextButton")
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    btn.Size = UDim2.new(1, 0, 0, 35)
-    btn.Font = Enum.Font.Gotham
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 14
-    btn.Parent = ContentFrame
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
-
-local function CreateToggle(text, callback)
-    local enabled = false
-    local btn = CreateButton(text .. ": OFF", function()
-        enabled = not enabled
-        callback(enabled)
-    end)
-    
-    local originalCallback = callback
-    callback = function(val)
-        enabled = val
-        btn.Text = text .. ": " .. (enabled and "ON" or "OFF")
-        btn.BackgroundColor3 = enabled and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(50, 50, 50)
-        originalCallback(val)
-    end
-    
-    -- Update the button to use the new logic
-    btn.MouseButton1Click:DisconnectAll()
-    btn.MouseButton1Click:Connect(function()
-        enabled = not enabled
-        callback(enabled)
-    end)
-    
-    return btn
-end
-
--- Desync Visuals
-local function CreateServerPosVisual(pos)
+-- Utility: Visuals
+function ExploitService:CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
     local character = game.Players.LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -142,6 +31,11 @@ local function CreateServerPosVisual(pos)
     ServerPosPart.CanCollide = false
     ServerPosPart.Position = pos or character.HumanoidRootPart.Position
     ServerPosPart.Parent = game.Workspace
+    
+    local SpecialMesh = Instance.new("SpecialMesh")
+    SpecialMesh.MeshType = Enum.MeshType.Sphere
+    SpecialMesh.Scale = Vector3.new(1.2, 1, 1.2)
+    SpecialMesh.Parent = ServerPosPart
     
     local BillboardGui = Instance.new("BillboardGui")
     BillboardGui.Size = UDim2.new(0, 200, 0, 50)
@@ -161,11 +55,11 @@ local function CreateServerPosVisual(pos)
     TextLabel.Parent = BillboardGui
 end
 
--- Feature Implementation
-CreateToggle("Desync", function(state)
+-- Service Methods
+function ExploitService:ToggleDesync(state)
     DesyncEnabled = state
     if DesyncEnabled then
-        CreateServerPosVisual()
+        self:CreateServerPosVisual()
         task.spawn(function()
             local hb = game:GetService("RunService").Heartbeat
             while DesyncEnabled do
@@ -182,21 +76,17 @@ CreateToggle("Desync", function(state)
     else
         if ServerPosPart then ServerPosPart:Destroy() end
     end
-end)
+end
 
-CreateButton("Update Visual Position", function()
-    if DesyncEnabled then CreateServerPosVisual() end
-end)
-
-CreateButton("Save Checkpoint", function()
+function ExploitService:SaveCheckpoint()
     local character = game.Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         SavedCheckpoint = character.HumanoidRootPart.Position
-        CreateServerPosVisual(SavedCheckpoint)
+        self:CreateServerPosVisual(SavedCheckpoint)
     end
-end)
+end
 
-CreateToggle("Instant Teleport (Bypass)", function(state)
+function ExploitService:ToggleTeleport(state)
     TeleportActive = state
     if TeleportActive then
         task.spawn(function()
@@ -230,4 +120,139 @@ CreateToggle("Instant Teleport (Bypass)", function(state)
             end
         end)
     end
-end)
+end
+
+-- UI Component (Using Knit logic)
+local function BuildUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local TitleBar = Instance.new("Frame")
+    local TitleLabel = Instance.new("TextLabel")
+    local CloseButton = Instance.new("TextButton")
+    local MinimizeButton = Instance.new("TextButton")
+    local ContentFrame = Instance.new("ScrollingFrame")
+    local UIListLayout = Instance.new("UIListLayout")
+
+    ScreenGui.Name = "KqzExploitzUI"
+    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.ResetOnSpawn = false
+
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.Position = UDim2.new(0.5, -125, 0.5, -180)
+    MainFrame.Size = UDim2.new(0, 250, 0, 380)
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    local MainCorner = Instance.new("UICorner", MainFrame)
+
+    TitleBar.Name = "TitleBar"
+    TitleBar.Parent = MainFrame
+    TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    TitleBar.Size = UDim2.new(1, 0, 0, 35)
+    local TitleCorner = Instance.new("UICorner", TitleBar)
+
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Parent = TitleBar
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+    TitleLabel.Size = UDim2.new(1, -70, 1, 0)
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.Text = "KqzExploitz (Knit)"
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = TitleBar
+    CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    CloseButton.Position = UDim2.new(1, -32, 0, 7)
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Text = "X"
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 4)
+    CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+    MinimizeButton.Name = "MinimizeButton"
+    MinimizeButton.Parent = TitleBar
+    MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    MinimizeButton.Position = UDim2.new(1, -57, 0, 7)
+    MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
+    MinimizeButton.Text = "-"
+    MinimizeButton.Font = Enum.Font.GothamBold
+    MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 4)
+
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Parent = MainFrame
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Position = UDim2.new(0, 10, 0, 45)
+    ContentFrame.Size = UDim2.new(1, -20, 1, -125)
+    ContentFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+    ContentFrame.ScrollBarThickness = 2
+    UIListLayout.Parent = ContentFrame
+    UIListLayout.Padding = UDim.new(0, 8)
+
+    -- Player Info Section
+    local PlayerInfo = Instance.new("Frame")
+    PlayerInfo.Parent = MainFrame
+    PlayerInfo.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    PlayerInfo.Position = UDim2.new(0, 10, 1, -70)
+    PlayerInfo.Size = UDim2.new(1, -20, 0, 60)
+    PlayerInfo.BackgroundTransparency = 0.5
+    Instance.new("UICorner", PlayerInfo)
+
+    local PlayerImage = Instance.new("ImageLabel")
+    PlayerImage.Parent = PlayerInfo
+    PlayerImage.Position = UDim2.new(0, 5, 0, 5)
+    PlayerImage.Size = UDim2.new(0, 50, 0, 50)
+    PlayerImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. game.Players.LocalPlayer.UserId .. "&w=150&h=150"
+    Instance.new("UICorner", PlayerImage).CornerRadius = UDim.new(1, 0)
+
+    local PlayerIDLabel = Instance.new("TextLabel")
+    PlayerIDLabel.Parent = PlayerInfo
+    PlayerIDLabel.BackgroundTransparency = 1
+    PlayerIDLabel.Position = UDim2.new(0, 65, 0, 5)
+    PlayerIDLabel.Size = UDim2.new(1, -70, 1, -10)
+    PlayerIDLabel.Font = Enum.Font.GothamMedium
+    PlayerIDLabel.Text = "ID: " .. game.Players.LocalPlayer.UserId
+    PlayerIDLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    PlayerIDLabel.TextSize = 14
+    PlayerIDLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- UI Buttons
+    local function CreateButton(text, callback)
+        local btn = Instance.new("TextButton")
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.Size = UDim2.new(1, 0, 0, 45)
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextSize = 15
+        btn.Parent = ContentFrame
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        btn.MouseButton1Click:Connect(callback)
+        return btn
+    end
+
+    local function CreateToggle(text, callback)
+        local enabled = false
+        local btn = CreateButton(text .. ": OFF", function()
+            enabled = not enabled
+            btn.Text = text .. ": " .. (enabled and "ON" or "OFF")
+            btn.BackgroundColor3 = enabled and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(50, 50, 50)
+            callback(enabled)
+        end)
+    end
+
+    CreateToggle("Desync", function(s) ExploitService:ToggleDesync(s) end)
+    CreateButton("Update Visual Position", function() if DesyncEnabled then ExploitService:CreateServerPosVisual() end end)
+    CreateButton("Save Checkpoint", function() ExploitService:SaveCheckpoint() end)
+    CreateToggle("Instant Teleport", function(s) ExploitService:ToggleTeleport(s) end)
+end
+
+-- Knit Start
+Knit.Start():andThen(function()
+    BuildUI()
+end):catch(warn)
