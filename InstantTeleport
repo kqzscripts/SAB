@@ -1,6 +1,3 @@
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
-local Window = OrionLib:MakeWindow({Name = "KqzExploitz", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"})
-
 -- Values
 local DesyncEnabled = false
 local ServerPosPart = nil
@@ -8,25 +5,12 @@ local ServerPosLabel = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
--- Colors
--- Grey/Dark Grey/White theme
-local Tab = Window:MakeTab({
-        Name = "Main",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-})
-
-local Section = Tab:AddSection({
-        Name = "Exploits"
-})
-
-local TeleportSection = Tab:AddSection({
-        Name = "Anti-Cheat Bypass (Teleport)"
-})
-
 local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
     
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
     ServerPosPart = Instance.new("Part")
     ServerPosPart.Name = "ServerPositionVisual"
     ServerPosPart.Size = Vector3.new(2, 6, 2)
@@ -34,7 +18,7 @@ local function CreateServerPosVisual(pos)
     ServerPosPart.Material = Enum.Material.Neon
     ServerPosPart.Anchored = true
     ServerPosPart.CanCollide = false
-    ServerPosPart.Position = pos or game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+    ServerPosPart.Position = pos or character.HumanoidRootPart.Position
     ServerPosPart.Parent = game.Workspace
     
     local BillboardGui = Instance.new("BillboardGui")
@@ -54,6 +38,84 @@ local function CreateServerPosVisual(pos)
     TextLabel.Font = Enum.Font.GothamBold
     TextLabel.Parent = BillboardGui
 end
+
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({
+    Name = "KqzExploitz", 
+    HidePremium = false, 
+    SaveConfig = true, 
+    ConfigFolder = "OrionTest",
+    IntroText = "KqzExploitz",
+    IntroIcon = "rbxassetid://4483345998"
+})
+
+local MainTab = Window:MakeTab({
+        Name = "Shop / Main",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+})
+
+local BypassTab = Window:MakeTab({
+        Name = "Bypasses",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+})
+
+local SettingsTab = Window:MakeTab({
+        Name = "Settings",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+})
+
+local Section = MainTab:AddSection({
+        Name = "Exploit Features"
+})
+
+local TeleportSection = BypassTab:AddSection({
+        Name = "Anti-Cheat Bypasses"
+})
+
+Section:AddToggle({
+        Name = "Desync (Confuse Server)",
+        Default = false,
+        Callback = function(Value)
+                DesyncEnabled = Value
+        if DesyncEnabled then
+            CreateServerPosVisual()
+            OrionLib:MakeNotification({
+                Name = "Desync Active",
+                Content = "The server thinks you are at the white block.",
+                Image = "rbxassetid://4483345998",
+                Time = 5
+            })
+            
+            task.spawn(function()
+                local hb = game:GetService("RunService").Heartbeat
+                while DesyncEnabled do
+                    local char = game.Players.LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        local oldVelocity = char.HumanoidRootPart.Velocity
+                        char.HumanoidRootPart.Velocity = Vector3.new(0, -500, 0)
+                        hb:Wait()
+                        char.HumanoidRootPart.Velocity = oldVelocity
+                    end
+                    task.wait()
+                end
+            end)
+        else
+            if ServerPosPart then ServerPosPart:Destroy() end
+        end
+        end    
+})
+
+Section:AddButton({
+        Name = "Update Visual Position",
+        Callback = function()
+        if DesyncEnabled then
+            CreateServerPosVisual()
+        end
+        end    
+})
 
 TeleportSection:AddButton({
         Name = "Save Checkpoint",
@@ -87,9 +149,6 @@ TeleportSection:AddToggle({
                 while TeleportActive do
                     local character = game.Players.LocalPlayer.Character
                     if character and character:FindFirstChild("HumanoidRootPart") and SavedCheckpoint then
-                        -- Check for Brainrot pickup (assuming it's a child or state)
-                        -- The user mentioned pickup/steal brainrot prevents equipping
-                        -- So we detect when a Brainrot object is parented to character or held
                         local hasBrainrot = false
                         for _, v in pairs(character:GetChildren()) do
                             if v.Name:lower():find("brainrot") then
@@ -99,22 +158,18 @@ TeleportSection:AddToggle({
                         end
                         
                         if hasBrainrot then
-                            -- 1. Automatically equip Flying Carpet to anchor
                             local backpack = game.Players.LocalPlayer.Backpack
                             local carpet = backpack:FindFirstChild("Flying Carpet") or character:FindFirstChild("Flying Carpet")
                             
                             if carpet then
-                                -- Bypassing anti-cheat by ensuring movement is anchored to the carpet tool
-                                -- The carpet acts as a physics "legalizer" for the server
                                 if carpet.Parent == backpack then
                                     carpet.Parent = character
                                 end
                                 
-                                task.wait(0.1) -- Small delay to ensure tool is recognized by server
+                                task.wait(0.1)
                                 
-                                -- Using CFrame with a slight velocity buffer to prevent rubberbanding
                                 local hrp = character.HumanoidRootPart
-                                hrp.Velocity = Vector3.new(0, 1, 0) -- Tiny upward force to "reset" fall distance
+                                hrp.Velocity = Vector3.new(0, 1, 0)
                                 hrp.CFrame = CFrame.new(SavedCheckpoint)
                                 
                                 OrionLib:MakeNotification({
@@ -122,7 +177,7 @@ TeleportSection:AddToggle({
                                     Content = "Teleported to Checkpoint with Carpet Anchor.",
                                     Time = 3
                                 })
-                                break -- Done
+                                break
                             end
                         end
                     end
@@ -133,50 +188,21 @@ TeleportSection:AddToggle({
         end    
 })
 
-Section:AddToggle({
-        Name = "Desync (Confuse Server)",
-        Default = false,
-        Callback = function(Value)
-                DesyncEnabled = Value
-        if DesyncEnabled then
-            CreateServerPosVisual()
-            OrionLib:MakeNotification({
-                Name = "Desync Active",
-                Content = "The server thinks you are at the white block.",
-                Image = "rbxassetid://4483345998",
-                Time = 5
-            })
-            
-            -- Improved Desync Logic: Spoofing replication without freezing player
-            task.spawn(function()
-                local hb = game:GetService("RunService").Heartbeat
-                while DesyncEnabled do
-                    local char = game.Players.LocalPlayer.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        -- We use a more subtle approach to desync that doesn't 
-                        -- set velocity to infinity which can cause physics freezes.
-                        -- Instead we offset the velocity during the physics step.
-                        local oldVelocity = char.HumanoidRootPart.Velocity
-                        char.HumanoidRootPart.Velocity = Vector3.new(0, -500, 0) -- Force server to think you're falling/desynced
-                        hb:Wait()
-                        char.HumanoidRootPart.Velocity = oldVelocity
-                    end
-                    task.wait()
-                end
-            end)
-        else
-            if ServerPosPart then ServerPosPart:Destroy() end
-        end
+SettingsTab:AddKeybind({
+        Name = "Toggle Menu Visibility",
+        Default = Enum.KeyCode.RightControl,
+        Hold = false,
+        Callback = function()
+                OrionLib:ToggleUI()
         end    
 })
 
-Section:AddButton({
-        Name = "Update Visual Position",
+SettingsTab:AddButton({
+        Name = "Close Script Permanently",
         Callback = function()
-        if DesyncEnabled then
-            CreateServerPosVisual()
-        end
+                OrionLib:Destroy()
         end    
 })
 
 OrionLib:Init()
+
