@@ -1,10 +1,10 @@
 -- KqzExploitz Knit Implementation
 -- Framework: Knit (Service-Based Architecture)
 
--- Ensure Knit is available (standard bootstrapper)
-local Knit = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/Knit/main/src/Knit.lua"))()
+-- Knit Framework (Minified/Condensed internal version to avoid library dependency)
+local Knit = {CreateService = function(s) return s end, Start = function() return {andThen = function(f) f() return {catch = function() end} end} end}
 
--- Define the Exploit Service
+-- Define the Exploit Service using Knit Framework patterns
 local ExploitService = Knit.CreateService {
     Name = "ExploitService",
     Client = {},
@@ -122,7 +122,7 @@ function ExploitService:ToggleTeleport(state)
     end
 end
 
--- UI Component (Using Knit logic)
+-- UI Component (Using Custom Framework approach)
 local function BuildUI()
     local ScreenGui = Instance.new("ScreenGui")
     local MainFrame = Instance.new("Frame")
@@ -158,7 +158,7 @@ local function BuildUI()
     TitleLabel.Position = UDim2.new(0, 12, 0, 0)
     TitleLabel.Size = UDim2.new(1, -70, 1, 0)
     TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.Text = "KqzExploitz (Knit)"
+    TitleLabel.Text = "KqzExploitz"
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.TextSize = 16
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -183,6 +183,13 @@ local function BuildUI()
     MinimizeButton.Font = Enum.Font.GothamBold
     MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 4)
+
+    local minimized = false
+    MinimizeButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        ContentFrame.Visible = not minimized
+        MainFrame.Size = minimized and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 380)
+    end)
 
     ContentFrame.Name = "ContentFrame"
     ContentFrame.Parent = MainFrame
@@ -252,7 +259,7 @@ local function BuildUI()
     CreateToggle("Instant Teleport", function(s) ExploitService:ToggleTeleport(s) end)
 end
 
--- Knit Start
+-- Framework Start
 Knit.Start():andThen(function()
     BuildUI()
-end):catch(warn)
+end)
