@@ -119,12 +119,31 @@ end
 -- UI Component
 local function BuildUI()
     local player = game.Players.LocalPlayer
-    local gui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
+    local gui = player:WaitForChild("PlayerGui", 10)
+
+    if not gui then
+        warn("PlayerGui missing")
+        return
+    end
+
+    local existing = gui:FindFirstChild("KqzExploitzUI")
+    if existing then
+        existing:Destroy()
+    end
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "KqzExploitzUI"
-    ScreenGui.Parent = gui
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = gui
+
+    pcall(function()
+        ScreenGui.IgnoreGuiInset = true
+        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    end)
+
+    if getgenv and getgenv().syn and getgenv().syn.protect_gui then
+        getgenv().syn.protect_gui(ScreenGui)
+    end
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -133,7 +152,42 @@ local function BuildUI()
     MainFrame.Position = UDim2.new(0.5, -125, 0.5, -180)
     MainFrame.Size = UDim2.new(0, 250, 0, 380)
     MainFrame.Active = true
-    MainFrame.Draggable = true
+    
+    -- Proper Dragging Implementation (Replacement for Deprecated .Draggable)
+    local UserInputService = game:GetService("UserInputService")
+    local dragging, dragInput, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    MainFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+
     local MainCorner = Instance.new("UICorner", MainFrame)
 
     local TitleBar = Instance.new("Frame")
