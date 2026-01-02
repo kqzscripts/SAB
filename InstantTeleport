@@ -1,23 +1,15 @@
--- KqzExploitz Knit Implementation
--- Framework: Knit (Service-Based Architecture)
+-- KqzExploitz Script
+-- Features: Desync, Checkpoint, Instant Teleport
+-- UI: Custom Grey/Dark Grey/White
 
--- Knit Framework (Minified/Condensed internal version to avoid library dependency)
-local Knit = {CreateService = function(s) return s end, Start = function() return {andThen = function(f) f() return {catch = function() end} end} end}
-
--- Define the Exploit Service using Knit Framework patterns
-local ExploitService = Knit.CreateService {
-    Name = "ExploitService",
-    Client = {},
-}
-
--- Values
+-- Variables
 local DesyncEnabled = false
 local ServerPosPart = nil
 local SavedCheckpoint = nil
 local TeleportActive = false
 
 -- Utility: Visuals
-function ExploitService:CreateServerPosVisual(pos)
+local function CreateServerPosVisual(pos)
     if ServerPosPart then ServerPosPart:Destroy() end
     local character = game.Players.LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -55,11 +47,11 @@ function ExploitService:CreateServerPosVisual(pos)
     TextLabel.Parent = BillboardGui
 end
 
--- Service Methods
-function ExploitService:ToggleDesync(state)
+-- Logic: Desync
+local function ToggleDesync(state)
     DesyncEnabled = state
     if DesyncEnabled then
-        self:CreateServerPosVisual()
+        CreateServerPosVisual()
         task.spawn(function()
             local hb = game:GetService("RunService").Heartbeat
             while DesyncEnabled do
@@ -78,15 +70,17 @@ function ExploitService:ToggleDesync(state)
     end
 end
 
-function ExploitService:SaveCheckpoint()
+-- Logic: Checkpoint
+local function SaveCheckpoint()
     local character = game.Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         SavedCheckpoint = character.HumanoidRootPart.Position
-        self:CreateServerPosVisual(SavedCheckpoint)
+        CreateServerPosVisual(SavedCheckpoint)
     end
 end
 
-function ExploitService:ToggleTeleport(state)
+-- Logic: Teleport
+local function ToggleTeleport(state)
     TeleportActive = state
     if TeleportActive then
         task.spawn(function()
@@ -122,21 +116,17 @@ function ExploitService:ToggleTeleport(state)
     end
 end
 
--- UI Component (Using Custom Framework approach)
+-- UI Component
 local function BuildUI()
+    local player = game.Players.LocalPlayer
+    local gui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
+    
     local ScreenGui = Instance.new("ScreenGui")
-    local MainFrame = Instance.new("Frame")
-    local TitleBar = Instance.new("Frame")
-    local TitleLabel = Instance.new("TextLabel")
-    local CloseButton = Instance.new("TextButton")
-    local MinimizeButton = Instance.new("TextButton")
-    local ContentFrame = Instance.new("ScrollingFrame")
-    local UIListLayout = Instance.new("UIListLayout")
-
     ScreenGui.Name = "KqzExploitzUI"
-    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.Parent = gui
     ScreenGui.ResetOnSpawn = false
 
+    local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -146,12 +136,14 @@ local function BuildUI()
     MainFrame.Draggable = true
     local MainCorner = Instance.new("UICorner", MainFrame)
 
+    local TitleBar = Instance.new("Frame")
     TitleBar.Name = "TitleBar"
     TitleBar.Parent = MainFrame
     TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     TitleBar.Size = UDim2.new(1, 0, 0, 35)
     local TitleCorner = Instance.new("UICorner", TitleBar)
 
+    local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Name = "TitleLabel"
     TitleLabel.Parent = TitleBar
     TitleLabel.BackgroundTransparency = 1
@@ -163,6 +155,7 @@ local function BuildUI()
     TitleLabel.TextSize = 16
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+    local CloseButton = Instance.new("TextButton")
     CloseButton.Name = "CloseButton"
     CloseButton.Parent = TitleBar
     CloseButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
@@ -174,6 +167,7 @@ local function BuildUI()
     Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 4)
     CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
+    local MinimizeButton = Instance.new("TextButton")
     MinimizeButton.Name = "MinimizeButton"
     MinimizeButton.Parent = TitleBar
     MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -184,13 +178,7 @@ local function BuildUI()
     MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 4)
 
-    local minimized = false
-    MinimizeButton.MouseButton1Click:Connect(function()
-        minimized = not minimized
-        ContentFrame.Visible = not minimized
-        MainFrame.Size = minimized and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 380)
-    end)
-
+    local ContentFrame = Instance.new("ScrollingFrame")
     ContentFrame.Name = "ContentFrame"
     ContentFrame.Parent = MainFrame
     ContentFrame.BackgroundTransparency = 1
@@ -198,8 +186,16 @@ local function BuildUI()
     ContentFrame.Size = UDim2.new(1, -20, 1, -125)
     ContentFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
     ContentFrame.ScrollBarThickness = 2
+    local UIListLayout = Instance.new("UIListLayout")
     UIListLayout.Parent = ContentFrame
     UIListLayout.Padding = UDim.new(0, 8)
+
+    local minimized = false
+    MinimizeButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        ContentFrame.Visible = not minimized
+        MainFrame.Size = minimized and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 380)
+    end)
 
     -- Player Info Section
     local PlayerInfo = Instance.new("Frame")
@@ -228,7 +224,7 @@ local function BuildUI()
     PlayerIDLabel.TextSize = 14
     PlayerIDLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- UI Buttons
+    -- Buttons
     local function CreateButton(text, callback)
         local btn = Instance.new("TextButton")
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -253,13 +249,11 @@ local function BuildUI()
         end)
     end
 
-    CreateToggle("Desync", function(s) ExploitService:ToggleDesync(s) end)
-    CreateButton("Update Visual Position", function() if DesyncEnabled then ExploitService:CreateServerPosVisual() end end)
-    CreateButton("Save Checkpoint", function() ExploitService:SaveCheckpoint() end)
-    CreateToggle("Instant Teleport", function(s) ExploitService:ToggleTeleport(s) end)
+    CreateToggle("Desync", function(s) ToggleDesync(s) end)
+    CreateButton("Update Visual Position", function() if DesyncEnabled then CreateServerPosVisual() end end)
+    CreateButton("Save Checkpoint", function() SaveCheckpoint() end)
+    CreateToggle("Instant Teleport", function(s) ToggleTeleport(s) end)
 end
 
--- Framework Start
-Knit.Start():andThen(function()
-    BuildUI()
-end)
+-- Initialize
+BuildUI()
