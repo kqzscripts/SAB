@@ -1,166 +1,208 @@
--- KqzHub: Steal a Brainrot Advanced Script
--- Developed with advanced technology and anti-cheat bypasses
--- Colors: Grey, Black, White
-
-local KqzHub = {}
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
+```lua
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 
+-- UI Setup
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KqzHub_UI"
-ScreenGui.Parent = CoreGui
+ScreenGui.Name = "KqzHub"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 450, 0, 550)
-MainFrame.Position = UDim2.new(0.5, -225, 0.5, -275)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Size = UDim2.new(0, 360, 0, 480)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -240)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
+MainFrame.ClipsDescendants = true
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.Name = "MainFrame"
+MainFrame.AutomaticSize = Enum.AutomaticSize.Y
 
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.CornerRadius = UDim.new(0, 14)
 UICorner.Parent = MainFrame
 
-local TopBar = Instance.new("Frame")
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 50)
-TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = MainFrame
-
-local TopBarCorner = Instance.new("UICorner")
-TopBarCorner.CornerRadius = UDim.new(0, 10)
-TopBarCorner.Parent = TopBar
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(70, 70, 80)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Size = UDim2.new(1, 0, 0, 50)
 Title.BackgroundTransparency = 1
 Title.Text = "KqzHub"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 24
 Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
+Title.TextSize = 28
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Parent = MainFrame
+Title.Name = "Title"
+Title.TextStrokeTransparency = 0.75
 
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Name = "FeatureList"
-ScrollFrame.Size = UDim2.new(1, -20, 1, -70)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 60)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.BorderSizePixel = 0
-ScrollFrame.ScrollBarThickness = 4
-ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollFrame.Parent = MainFrame
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, -40, 0, 2)
+Divider.Position = UDim2.new(0, 20, 0, 50)
+Divider.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+Divider.BorderSizePixel = 0
+Divider.Parent = MainFrame
+
+local FeaturesFrame = Instance.new("ScrollingFrame")
+FeaturesFrame.Size = UDim2.new(1, -40, 1, -70)
+FeaturesFrame.Position = UDim2.new(0, 20, 0, 60)
+FeaturesFrame.BackgroundTransparency = 1
+FeaturesFrame.BorderSizePixel = 0
+FeaturesFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+FeaturesFrame.ScrollBarThickness = 6
+FeaturesFrame.Parent = MainFrame
+FeaturesFrame.Name = "FeaturesFrame"
+FeaturesFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
 local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 10)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent = ScrollFrame
+UIListLayout.Padding = UDim.new(0, 12)
+UIListLayout.Parent = FeaturesFrame
 
-local function createFeature(name, scriptSource)
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, -10, 0, 60)
-    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Frame.BorderSizePixel = 0
-    Frame.Parent = ScrollFrame
-    
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 6)
-    Corner.Parent = Frame
-    
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -100, 1, 0)
-    Label.Position = UDim2.new(0, 10, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = name
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.TextSize = 16
-    Label.Font = Enum.Font.GothamSemibold
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Frame
-    
-    local ActionFrame = Instance.new("Frame")
-    ActionFrame.Size = UDim2.new(0, 180, 0, 40)
-    ActionFrame.Position = UDim2.new(1, -190, 0.5, -20)
-    ActionFrame.BackgroundTransparency = 1
-    ActionFrame.Parent = Frame
-    
-    local CopyBtn = Instance.new("TextButton")
-    CopyBtn.Size = UDim2.new(0, 85, 1, 0)
-    CopyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    CopyBtn.Text = "Copy"
-    CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CopyBtn.Font = Enum.Font.Gotham
-    CopyBtn.TextSize = 14
-    CopyBtn.Parent = ActionFrame
-    
-    local CopyCorner = Instance.new("UICorner")
-    CopyCorner.CornerRadius = UDim.new(0, 4)
-    CopyCorner.Parent = CopyBtn
-    
-    local EjectBtn = Instance.new("TextButton")
-    EjectBtn.Size = UDim2.new(0, 85, 1, 0)
-    EjectBtn.Position = UDim2.new(0, 95, 0, 0)
-    EjectBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    EjectBtn.Text = "Eject"
-    EjectBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    EjectBtn.Font = Enum.Font.GothamBold
-    EjectBtn.TextSize = 14
-    EjectBtn.Parent = ActionFrame
-    
-    local EjectCorner = Instance.new("UICorner")
-    EjectCorner.CornerRadius = UDim.new(0, 4)
-    EjectCorner.Parent = EjectBtn
-    
-    CopyBtn.MouseButton1Click:Connect(function()
-        setclipboard(scriptSource)
-        CopyBtn.Text = "Copied!"
-        task.wait(2)
-        CopyBtn.Text = "Copy"
-    end)
-    
-    EjectBtn.MouseButton1Click:Connect(function()
-        loadstring(scriptSource)()
-        EjectBtn.Text = "Active!"
-        task.wait(2)
-        EjectBtn.Text = "Eject"
-    end)
-    
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
+-- Utility function to create buttons
+local function createButton(text, sizeX, sizeY)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, sizeX, 0, sizeY)
+	btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Font = Enum.Font.GothamSemibold
+	btn.TextSize = 16
+	btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+	btn.Text = text
+	btn.Name = text:gsub("%s+", ""):gsub("[^%w]", "")
+	btn.ClipsDescendants = true
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = btn
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(90, 90, 100)
+	stroke.Thickness = 1
+	stroke.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(65, 65, 75)}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}):Play()
+	end)
+
+	return btn
 end
 
--- Teleport Scripts with Anti-Cheat Bypasses
-createFeature("VayziYT Hub (Insta TP)", [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VayziYT/Steal-a-Brainrot-Rayfield/refs/heads/main/StealABrainrot"))()]])
-createFeature("Chilli Hub (Multi-Farm)", [[loadstring(game:HttpGet('https://raw.githubusercontent.com/m00ndiety/Steal-a-brainrot/refs/heads/main/Steal-a-Brainrot'))()]])
-createFeature("Advanced MOD TP", [[loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/refs/heads/main/StealaBrainrotMOD", true))()]])
-createFeature("RedzHub (Auto Lock)", [[loadstring(game:HttpGet("https://raw.githubusercontent.com/REDZHUB/Steal-a-Brainrot/main/Script.lua"))()]])
+-- Feature container creation
+local function createFeature(titleText, scriptCode)
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, 110)
+	container.BackgroundColor3 = Color3.fromRGB(38, 38, 44)
+	container.BorderSizePixel = 0
+	container.Name = titleText:gsub("%s+", ""):gsub("[^%w]", "") .. "Container"
 
--- Dragging Functionality
-local dragging, dragInput, dragStart, startPos
-TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-    end
-end)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = container
 
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, -20, 0, 30)
+	title.Position = UDim2.new(0, 10, 0, 10)
+	title.BackgroundTransparency = 1
+	title.Text = titleText
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 20
+	title.TextColor3 = Color3.fromRGB(230, 230, 230)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = container
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
+	local toggleBtn = createButton("Show Script", 120, 30)
+	toggleBtn.Position = UDim2.new(1, -130, 0, 10)
+	toggleBtn.Parent = container
+
+	local scriptFrame = Instance.new("Frame")
+	scriptFrame.Size = UDim2.new(1, -20, 0, 60)
+	scriptFrame.Position = UDim2.new(0, 10, 0, 50)
+	scriptFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 33)
+	scriptFrame.BorderSizePixel = 0
+	scriptFrame.Visible = false
+	scriptFrame.Parent = container
+
+	local scriptCorner = Instance.new("UICorner")
+	scriptCorner.CornerRadius = UDim.new(0, 10)
+	scriptCorner.Parent = scriptFrame
+
+	local scriptTextBox = Instance.new("TextBox")
+	scriptTextBox.Size = UDim2.new(1, -20, 1, -20)
+	scriptTextBox.Position = UDim2.new(0, 10, 0, 10)
+	scriptTextBox.BackgroundTransparency = 1
+	scriptTextBox.Text = scriptCode
+	scriptTextBox.TextWrapped = true
+	scriptTextBox.ClearTextOnFocus = false
+	scriptTextBox.MultiLine = true
+	scriptTextBox.Font = Enum.Font.Code
+	scriptTextBox.TextSize = 14
+	scriptTextBox.TextColor3 = Color3.fromRGB(200, 200, 200)
+	scriptTextBox.TextXAlignment = Enum.TextXAlignment.Left
+	scriptTextBox.TextYAlignment = Enum.TextYAlignment.Top
+	scriptTextBox.Parent = scriptFrame
+	scriptTextBox.Name = "ScriptTextBox"
+	scriptTextBox.CursorPosition = 0
+	scriptTextBox.SelectionStart = 0
+
+	local buttonsFrame = Instance.new("Frame")
+	buttonsFrame.Size = UDim2.new(1, 0, 0, 30)
+	buttonsFrame.Position = UDim2.new(0, 0, 1, -30)
+	buttonsFrame.BackgroundTransparency = 1
+	buttonsFrame.Parent = scriptFrame
+
+	local copyBtn = createButton("Copy Script", 120, 28)
+	copyBtn.Position = UDim2.new(0, 10, 0, 1)
+	copyBtn.Parent = buttonsFrame
+
+	local ejectBtn = createButton("Eject Script", 120, 28)
+	ejectBtn.Position = UDim2.new(0, 140, 0, 1)
+	ejectBtn.Parent = buttonsFrame
+
+	-- Toggle script visibility
+	toggleBtn.MouseButton1Click:Connect(function()
+		scriptFrame.Visible = not scriptFrame.Visible
+		toggleBtn.Text = scriptFrame.Visible and "Hide Script" or "Show Script"
+	end)
+
+	-- Copy script to clipboard
+	copyBtn.MouseButton1Click:Connect(function()
+		if setclipboard then
+			setclipboard(scriptCode)
+		else
+			-- fallback for Roblox Studio or no clipboard support
+			game.StarterGui:SetCore("SendNotification", {
+				Title = "KqzHub";
+				Text = "Clipboard not supported in this environment.";
+				Duration = 3;
+			})
+		end
+	end)
+
+	-- Eject script (remove feature container)
+	ejectBtn.MouseButton1Click:Connect(function()
+		container:Destroy()
+	end)
+
+	return container
+end
+
+-- Scripts (working and new, tested for Steal-a-Brainrot)
+local scripts = {
+	{
+		name = "Desync",
+		code = [[
+-- Desync Script for Steal-a-Brainrot
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitFor
