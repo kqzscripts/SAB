@@ -1,193 +1,215 @@
--- Kqz Utility Hub (2025 COMPATIBLE)
--- Features: WalkSpeed, JumpPower, Checkpoint, FPS Boost, Rejoin
--- Optimized for: Steal a Brainrot / Bunni.lol
+-- Kqz Utility Hub (2025 REBUILD – UI / STABILITY FOCUSED)
 
+-- ================= SERVICES =================
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local TeleportService = game:GetService("TeleportService")
 local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
-local player = Players.LocalPlayer
+local Player = Players.LocalPlayer
 
 -- ================= STATE =================
 local State = {
-    WalkSpeed = false,
-    JumpPower = false,
-    SavedPos = nil,
-    Minimized = false
+    WalkSpeed = 16,
+    JumpPower = 50,
+    Checkpoint = nil,
+    Visible = true
 }
 
--- ================= GUI SETUP =================
--- Cleanup
-local existing = CoreGui:FindFirstChild("KqzUtilityHub")
-if existing then existing:Destroy() end
+-- ================= CLEANUP =================
+pcall(function()
+    local old = CoreGui:FindFirstChild("KqzUtilityHub")
+    if old then old:Destroy() end
+end)
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "KqzUtilityHub"
-gui.Parent = CoreGui
-gui.DisplayOrder = 999999
-gui.ResetOnSpawn = false
+-- ================= GUI ROOT =================
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "KqzUtilityHub"
+Gui.Parent = CoreGui
+Gui.DisplayOrder = 1e6
+Gui.IgnoreGuiInset = true
+Gui.ResetOnSpawn = false
 
-pcall(function() gui.IgnoreGuiInset = true end)
-
-local Main = Instance.new("Frame", gui)
-Main.Name = "MainFrame"
-Main.Size = UDim2.new(0, 330, 0, 320)
+-- ================= MAIN =================
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.fromOffset(360, 300)
 Main.Position = UDim2.fromScale(0.5, 0.5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Main.BackgroundColor3 = Color3.fromRGB(28,28,28)
 Main.Active = true
 Instance.new("UICorner", Main)
 
--- Dragging Logic
+-- ================= DRAG =================
 do
-    local dragging, dragStart, startPos
+    local drag, startPos, startInput
     Main.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = i.Position
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            drag = true
+            startInput = i.Position
             startPos = Main.Position
             i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then dragging = false end
+                if i.UserInputState == Enum.UserInputState.End then drag = false end
             end)
         end
     end)
     UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local delta = i.Position - dragStart
+        if drag and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = i.Position - startInput
             Main.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
         end
     end)
 end
 
--- Layout Constants
-local TITLE_HEIGHT = 35
-local FOOTER_HEIGHT = 65
+-- ================= TITLE =================
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,36)
+Title.Text = "Kqz Utility Hub"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextColor3 = Color3.new(1,1,1)
+Title.BackgroundColor3 = Color3.fromRGB(40,40,40)
+Instance.new("UICorner", Title)
 
--- Title Bar
-local TitleBar = Instance.new("Frame", Main)
-TitleBar.Size = UDim2.new(1, 0, 0, TITLE_HEIGHT)
-TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-Instance.new("UICorner", TitleBar)
-
-local TitleText = Instance.new("TextLabel", TitleBar)
-TitleText.Size = UDim2.new(1, -70, 1, 0)
-TitleText.Position = UDim2.new(0, 12, 0, 0)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "Kqz Utility Hub"
-TitleText.Font = Enum.Font.GothamBold
-TitleText.TextSize = 16
-TitleText.TextColor3 = Color3.new(1, 1, 1)
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-
--- Content Area (Scrolling)
+-- ================= CONTENT =================
 local Content = Instance.new("ScrollingFrame", Main)
-Content.Name = "ContentFrame"
-Content.Position = UDim2.new(0, 10, 0, TITLE_HEIGHT + 10)
-Content.Size = UDim2.new(1, -20, 1, -(TITLE_HEIGHT + FOOTER_HEIGHT + 20))
-Content.BackgroundTransparency = 1
-Content.CanvasSize = UDim2.new()
-Content.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+Content.Position = UDim2.new(0,12,0,46)
+Content.Size = UDim2.new(1,-24,1,-120)
 Content.ScrollBarThickness = 3
-Content.ZIndex = 5
+Content.BackgroundTransparency = 1
+Content.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
 
 local Layout = Instance.new("UIListLayout", Content)
-Layout.Padding = UDim.new(0, 8)
+Layout.Padding = UDim.new(0,8)
 
--- Footer (Player Info)
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Content.CanvasSize = UDim2.fromOffset(0, Layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- ================= FOOTER =================
 local Footer = Instance.new("Frame", Main)
-Footer.Name = "FooterFrame"
-Footer.Size = UDim2.new(1, -20, 0, FOOTER_HEIGHT)
-Footer.Position = UDim2.new(0, 10, 1, -(FOOTER_HEIGHT + 5))
-Footer.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-Footer.ZIndex = 2
+Footer.Size = UDim2.new(1,-24,0,60)
+Footer.Position = UDim2.new(0,12,1,-68)
+Footer.BackgroundColor3 = Color3.fromRGB(40,40,40)
 Instance.new("UICorner", Footer)
 
-local UserIDLabel = Instance.new("TextLabel", Footer)
-UserIDLabel.Size = UDim2.new(1, 0, 1, 0)
-UserIDLabel.BackgroundTransparency = 1
-UserIDLabel.Text = "UserId: " .. player.UserId
-UserIDLabel.Font = Enum.Font.Gotham
-UserIDLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-UserIDLabel.TextSize = 14
+local Info = Instance.new("TextLabel", Footer)
+Info.Size = UDim2.new(1,0,1,0)
+Info.BackgroundTransparency = 1
+Info.Text = "UserId: "..Player.UserId
+Info.Font = Enum.Font.Gotham
+Info.TextSize = 13
+Info.TextColor3 = Color3.fromRGB(200,200,200)
 
 -- ================= UI HELPERS =================
-local function CreateButton(text, callback)
+local function Button(text, cb)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, 0, 0, 38)
-    b.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    b.Size = UDim2.new(1,0,0,38)
     b.Text = text
     b.Font = Enum.Font.GothamSemibold
     b.TextSize = 14
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.ZIndex = 6
+    b.TextColor3 = Color3.new(1,1,1)
+    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
     Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(function() callback(b) end)
-    return b
+    b.MouseButton1Click:Connect(cb)
 end
 
-local function CreateToggle(text, callback)
-    local on = false
-    local b = CreateButton(text .. " : OFF", function(btn)
-        on = not on
-        btn.Text = text .. " : " .. (on and "ON" or "OFF")
-        TweenService:Create(btn, TweenInfo.new(0.2), {
-            BackgroundColor3 = on and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(55, 55, 55)
-        }):Play()
-        callback(on)
+local function Slider(label, min, max, default, onChange)
+    local holder = Instance.new("Frame", Content)
+    holder.Size = UDim2.new(1,0,0,50)
+    holder.BackgroundTransparency = 1
+
+    local txt = Instance.new("TextLabel", holder)
+    txt.Size = UDim2.new(1,0,0,18)
+    txt.BackgroundTransparency = 1
+    txt.TextXAlignment = Left
+    txt.Font = Enum.Font.Gotham
+    txt.TextSize = 13
+    txt.TextColor3 = Color3.new(1,1,1)
+
+    local bar = Instance.new("Frame", holder)
+    bar.Position = UDim2.new(0,0,0,26)
+    bar.Size = UDim2.new(1,0,0,6)
+    bar.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    Instance.new("UICorner", bar)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.fromScale((default-min)/(max-min),1)
+    fill.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    Instance.new("UICorner", fill)
+
+    local value = default
+    txt.Text = label..": "..value
+
+    bar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            local move
+            move = UIS.InputChanged:Connect(function(m)
+                if m.UserInputType == Enum.UserInputType.MouseMovement then
+                    local pct = math.clamp((m.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,0,1)
+                    value = math.floor(min + (max-min)*pct)
+                    fill.Size = UDim2.fromScale(pct,1)
+                    txt.Text = label..": "..value
+                    onChange(value)
+                end
+            end)
+            UIS.InputEnded:Once(function() if move then move:Disconnect() end end)
+        end
     end)
-    return b
 end
 
 -- ================= FEATURES =================
-CreateToggle("WalkSpeed", function(v)
+local function ApplyStats()
+    local hum = Player.Character and Player.Character:FindFirstChild("Humanoid")
+    if hum then
+        hum.WalkSpeed = State.WalkSpeed
+        hum.JumpPower = State.JumpPower
+    end
+end
+
+Slider("WalkSpeed", 16, 40, 16, function(v)
     State.WalkSpeed = v
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-    if hum then hum.WalkSpeed = v and 32 or 16 end
+    ApplyStats()
 end)
 
-CreateToggle("JumpPower", function(v)
+Slider("JumpPower", 50, 120, 50, function(v)
     State.JumpPower = v
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-    if hum then hum.JumpPower = v and 80 or 50 end
+    ApplyStats()
 end)
 
-CreateButton("Save Checkpoint", function()
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then 
-        State.SavedPos = hrp.Position
-        print("[KqzHub] Checkpoint Saved")
+Button("Save Checkpoint", function()
+    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then State.Checkpoint = hrp.CFrame end
+end)
+
+Button("Teleport to Checkpoint", function()
+    if State.Checkpoint then
+        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = State.Checkpoint end
     end
 end)
 
-CreateButton("Teleport to Checkpoint", function()
-    if State.SavedPos then
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then 
-            hrp.CFrame = CFrame.new(State.SavedPos) 
-            print("[KqzHub] Teleported to Checkpoint")
-        end
-    end
-end)
-
-CreateButton("FPS Boost", function()
-    for _, v in ipairs(Lighting:GetChildren()) do
+Button("FPS Boost", function()
+    for _,v in ipairs(Lighting:GetChildren()) do
         if v:IsA("PostEffect") then v.Enabled = false end
     end
-    print("[KqzHub] FPS Boost Applied")
 end)
 
-CreateButton("Rejoin", function()
-    TeleportService:Teleport(game.PlaceId, player)
+Button("Rejoin Server", function()
+    TeleportService:Teleport(game.PlaceId, Player)
 end)
 
--- ================= TOGGLE KEYBIND =================
-UIS.InputBegan:Connect(function(input, gpe)
-    if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
-        gui.Enabled = not gui.Enabled
+-- ================= RESPAWN SAFE =================
+Player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    ApplyStats()
+end)
+
+-- ================= TOGGLE UI =================
+UIS.InputBegan:Connect(function(i,gp)
+    if not gp and i.KeyCode == Enum.KeyCode.RightShift then
+        State.Visible = not State.Visible
+        Main.Visible = State.Visible
     end
 end)
-
-print("[KqzHub] Successfully Initialized")
