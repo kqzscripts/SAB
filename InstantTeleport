@@ -1,18 +1,32 @@
--- KqzExploitz Utility Hub
--- Features: Save Checkpoint, Teleport Back (Carpet Required)
+-- KqzExploitz
+-- Features: Set Checkpoint, Auto TP, Desync
 -- UI: Grey / Dark Grey / White
+-- Anti-Cheat Bypass Enabled
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 -- ================= STATE =================
-local SavedPosition = nil
+local SavedCheckpoint = nil
+local SavedServerPosition = nil
+local DesyncEnabled = false
+local ServerPosition = nil
+local ServerPositionIndicator = nil
+local DesyncConnection = nil
+local AutoTPActive = false
+local AutoTPConnection = nil
 
 -- ================= CLEANUP =================
 local pg = player:WaitForChild("PlayerGui")
 local old = pg:FindFirstChild("KqzExploitzUI")
 if old then old:Destroy() end
+
+local workspace = game:GetService("Workspace")
+local oldIndicator = workspace:FindFirstChild("KqzExploitz_ServerPosition")
+if oldIndicator then oldIndicator:Destroy() end
 
 -- ================= GUI =================
 local gui = Instance.new("ScreenGui")
@@ -21,12 +35,14 @@ gui.ResetOnSpawn = false
 gui.Parent = pg
 
 local Main = Instance.new("Frame", gui)
-Main.Size = UDim2.new(0, 320, 0, 220)
+Main.Size = UDim2.new(0, 320, 0, 310)
 Main.Position = UDim2.fromScale(0.5, 0.5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 Main.Active = true
 Instance.new("UICorner", Main)
+
+local Minimized = false
 
 -- ================= DRAG =================
 do
@@ -59,7 +75,7 @@ Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 Instance.new("UICorner", Title)
 
 local TitleText = Instance.new("TextLabel", Title)
-TitleText.Size = UDim2.new(1, -70, 1, 0)
+TitleText.Size = UDim2.new(1, -100, 1, 0)
 TitleText.Position = UDim2.new(0, 12, 0, 0)
 TitleText.BackgroundTransparency = 1
 TitleText.Text = "KqzExploitz"
@@ -67,6 +83,27 @@ TitleText.Font = Enum.Font.GothamBold
 TitleText.TextSize = 16
 TitleText.TextColor3 = Color3.new(1, 1, 1)
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local Minimize = Instance.new("TextButton", Title)
+Minimize.Size = UDim2.new(0, 22, 0, 22)
+Minimize.Position = UDim2.new(1, -56, 0, 7)
+Minimize.Text = "_"
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 14
+Minimize.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+Minimize.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", Minimize)
+
+Minimize.MouseButton1Click:Connect(function()
+    Minimized = not Minimized
+    if Minimized then
+        Main.Size = UDim2.new(0, 320, 0, 36)
+        Content.Visible = false
+    else
+        Main.Size = UDim2.new(0, 320, 0, 310)
+        Content.Visible = true
+    end
+end)
 
 local Close = Instance.new("TextButton", Title)
 Close.Size = UDim2.new(0, 22, 0, 22)
@@ -80,6 +117,13 @@ Instance.new("UICorner", Close)
 
 Close.MouseButton1Click:Connect(function()
     gui:Destroy()
+    if ServerPositionIndicator then
+        ServerPositionIndicator:Destroy()
+    end
+    if AutoTPConnection then
+        AutoTPConnection:Disconnect()
+        AutoTPActive = false
+    end
 end)
 
 -- ================= CONTENT =================
@@ -87,6 +131,7 @@ local Content = Instance.new("Frame", Main)
 Content.Position = UDim2.new(0, 10, 0, 50)
 Content.Size = UDim2.new(1, -20, 1, -60)
 Content.BackgroundTransparency = 1
+Content.Visible = true
 
 local layout = Instance.new("UIListLayout", Content)
 layout.Padding = UDim.new(0, 10)
@@ -102,6 +147,7 @@ local function Button(text, callback)
     b.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(callback)
+    return b
 end
 
 -- ================= DETECTION =================
@@ -113,9 +159,12 @@ local function HasCarriedObject()
         if v:IsA("Model") and v ~= char then
             return true
         end
-        if v:IsA("BasePart") and not v.Name:lower():find("humanoid") then
-            if not v.Name:lower():find("carpet") then
-                return true
+        if v:IsA("BasePart") then
+            local nameLower = v.Name:lower()
+            if not nameLower:find("humanoid") and not nameLower:find("root") and not nameLower:find("head") and not nameLower:find("torso") then
+                if not nameLower:find("carpet") then
+                    return true
+                end
             end
         end
     end
@@ -126,39 +175,411 @@ local function GetFlyingCarpet()
     local char = player.Character
     if not char then return nil end
 
+    -- Check in character
     for _, v in ipairs(char:GetChildren()) do
-        if v:IsA("Tool") and v.Name:lower():find("carpet") then
+        if v:IsA("Tool") and (v.Name:lower():find("carpet") or v.Name:lower():find("fly")) then
             return v
         end
+    end
+    
+    -- Check in backpack
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, v in ipairs(backpack:GetChildren()) do
+            if v:IsA("Tool") and (v.Name:lower():find("carpet") or v.Name:lower():find("fly")) then
+                return v
+            end
+        end
+    end
+    
+    return nil
+end
+
+local function EquipFlyingCarpet()
+    local carpet = GetFlyingCarpet()
+    if not carpet then return false end
+    
+    local char = player.Character
+    if not char then return false end
+    
+    -- Check if already equipped
+    if carpet.Parent == char then return true end
+    
+    -- Equip the carpet
+    carpet.Parent = char
+    
+    task.wait(0.1)
+    return carpet.Parent == char
+end
+
+-- ================= ANTI-CHEAT BYPASS =================
+local function BypassTeleport(targetCFrame)
+    local char = player.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not hrp or not humanoid then return false end
+    
+    local startPos = hrp.CFrame
+    local targetPos = targetCFrame
+    local distance = (startPos.Position - targetPos.Position).Magnitude
+    
+    -- Use physics state for smooth movement
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    task.wait(0.05)
+    
+    -- Set velocity to zero to prevent pullback
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    -- If distance is large, use tween to make it look natural
+    if distance > 50 then
+        -- Multiple small teleports to appear as flying
+        local steps = math.ceil(distance / 25)
+        local stepSize = distance / steps
+        
+        for i = 1, steps do
+            local progress = i / steps
+            local lerpPos = startPos.Position:Lerp(targetPos.Position, progress)
+            local lerpCFrame = startPos:Lerp(targetPos, progress)
+            
+            hrp.CFrame = lerpCFrame
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            
+            -- Small delay to prevent detection
+            task.wait(0.01)
+        end
+    else
+        -- Direct teleport for short distances
+        hrp.CFrame = targetPos
+    end
+    
+    -- Final position lock
+    hrp.CFrame = targetPos
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    task.wait(0.05)
+    humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    
+    return true
+end
+
+local function SmoothTeleportWithCarpet(targetCFrame)
+    local char = player.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not hrp or not humanoid then return false end
+    
+    -- Equip carpet first
+    if not EquipFlyingCarpet() then
+        return false
+    end
+    
+    local carpet = GetFlyingCarpet()
+    if not carpet then return false end
+    
+    -- Activate carpet animation if it has a handle
+    local carpetHandle = carpet:FindFirstChild("Handle")
+    if carpetHandle then
+        -- Make sure carpet is active
+        task.wait(0.1)
+    end
+    
+    local startPos = hrp.CFrame
+    local targetPos = targetCFrame
+    local distance = (startPos.Position - targetPos.Position).Magnitude
+    
+    -- Use physics state
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    task.wait(0.05)
+    
+    -- Reset velocities
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    -- Simulate flying motion
+    local steps = math.max(3, math.ceil(distance / 15))
+    
+    for i = 1, steps do
+        local progress = i / steps
+        local lerpCFrame = startPos:Lerp(targetPos, progress)
+        
+        -- Add slight upward arc to simulate flying
+        local offset = math.sin(progress * math.pi) * 5
+        lerpCFrame = lerpCFrame * CFrame.new(0, offset, 0)
+        
+        hrp.CFrame = lerpCFrame
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        
+        task.wait(0.02)
+    end
+    
+    -- Final position
+    hrp.CFrame = targetPos
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    
+    task.wait(0.1)
+    humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    
+    return true
+end
+
+-- ================= SERVER POSITION INDICATOR =================
+local function CreateServerPositionIndicator(position)
+    if ServerPositionIndicator then
+        ServerPositionIndicator:Destroy()
+    end
+    
+    local char = player.Character
+    if not char then return end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return end
+    
+    local height = humanoid.HipHeight + 2
+    
+    local indicator = Instance.new("Model")
+    indicator.Name = "KqzExploitz_ServerPosition"
+    indicator.Parent = workspace
+    
+    local block = Instance.new("Part")
+    block.Name = "ServerPositionBlock"
+    block.Size = Vector3.new(4, height, 4)
+    block.Position = position
+    block.Anchored = true
+    block.CanCollide = false
+    block.Transparency = 0.3
+    block.Color = Color3.new(1, 1, 1)
+    block.Material = Enum.Material.Neon
+    block.Parent = indicator
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, height/2 + 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = block
+    billboard.Parent = block
+    
+    local label = Instance.new("TextLabel", billboard)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "Server Position"
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+    label.TextColor3 = Color3.new(0, 0, 0)
+    label.TextStrokeTransparency = 0.5
+    label.TextStrokeColor3 = Color3.new(1, 1, 1)
+    
+    ServerPositionIndicator = indicator
+end
+
+local function UpdateServerPositionIndicator()
+    if not DesyncEnabled or not ServerPosition then return end
+    if not ServerPositionIndicator then return end
+    
+    local block = ServerPositionIndicator:FindFirstChild("ServerPositionBlock")
+    if block then
+        block.Position = ServerPosition.Position
+    end
+end
+
+-- ================= DESYNC =================
+local DesyncButton = nil
+
+local function ToggleDesync()
+    local char = player.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    if DesyncEnabled then
+        DesyncEnabled = false
+        if DesyncConnection then
+            DesyncConnection:Disconnect()
+            DesyncConnection = nil
+        end
+        
+        if ServerPositionIndicator then
+            ServerPositionIndicator:Destroy()
+            ServerPositionIndicator = nil
+        end
+        
+        ServerPosition = nil
+        
+        if DesyncButton then
+            DesyncButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            DesyncButton.Text = "Desync (OFF)"
+        end
+        warn("[KqzExploitz] Desync disabled")
+    else
+        DesyncEnabled = true
+        ServerPosition = hrp.CFrame
+        
+        CreateServerPositionIndicator(ServerPosition.Position)
+        
+        if DesyncButton then
+            DesyncButton.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
+            DesyncButton.Text = "Desync (ON)"
+        end
+        
+        local hrpRef = hrp
+        
+        DesyncConnection = RunService.Heartbeat:Connect(function()
+            if not DesyncEnabled or not char or not hrpRef then 
+                return 
+            end
+            
+            if ServerPosition then
+                local actualPosition = hrpRef.CFrame
+                
+                -- Set server position (permanently confuse server)
+                hrpRef.CFrame = ServerPosition
+                
+                UpdateServerPositionIndicator()
+                
+                task.wait()
+                hrpRef.CFrame = actualPosition
+            end
+        end)
+        
+        warn("[KqzExploitz] Desync enabled - Server thinks you're at: " .. tostring(ServerPosition.Position))
     end
 end
 
 -- ================= FEATURES =================
-Button("Save Checkpoint", function()
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+local SetCheckpointButton = Button("Set Checkpoint", function()
+    local char = player.Character
+    if not char then 
+        warn("[KqzExploitz] No character found!")
+        return 
+    end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     if hrp then
-        SavedPosition = hrp.CFrame
-        warn("[KqzExploitz] Checkpoint saved")
+        SavedCheckpoint = hrp.CFrame
+        SavedServerPosition = hrp.CFrame -- Save server position for anti-cheat bypass
+        warn("[KqzExploitz] Checkpoint saved at: " .. tostring(SavedCheckpoint.Position))
     end
 end)
 
-Button("Teleport To Checkpoint", function()
-    if not SavedPosition then return end
-    if not HasCarriedObject() then return end
+local AutoTPButton = nil
+local lastTPTime = 0
 
+local function ToggleAutoTP()
+    if AutoTPActive then
+        -- Disable Auto TP
+        AutoTPActive = false
+        if AutoTPConnection then
+            AutoTPConnection:Disconnect()
+            AutoTPConnection = nil
+        end
+        if AutoTPButton then
+            AutoTPButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            AutoTPButton.Text = "Auto TP (OFF)"
+        end
+        warn("[KqzExploitz] Auto TP disabled")
+    else
+        -- Enable Auto TP
+        if not SavedCheckpoint then
+            warn("[KqzExploitz] No checkpoint set! Use 'Set Checkpoint' first.")
+            return
+        end
+        
+        AutoTPActive = true
+        if AutoTPButton then
+            AutoTPButton.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
+            AutoTPButton.Text = "Auto TP (ON)"
+        end
+        
+        AutoTPConnection = RunService.Heartbeat:Connect(function()
+            if not AutoTPActive then return end
+            
+            local char = player.Character
+            if not char then return end
+            
+            -- Rate limiting to prevent spam
+            if tick() - lastTPTime < 2 then return end
+            
+            -- Check if player has picked up an object (can't equip anything)
+            if HasCarriedObject() then
+                -- Check if flying carpet exists
+                local carpet = GetFlyingCarpet()
+                if carpet then
+                    -- Equip carpet automatically
+                    if EquipFlyingCarpet() then
+                        task.wait(0.1)
+                        -- Use smooth teleport with carpet to bypass anti-cheat
+                        if SavedCheckpoint then
+                            SmoothTeleportWithCarpet(SavedCheckpoint)
+                            lastTPTime = tick()
+                            warn("[KqzExploitz] Auto TP activated - Teleported to checkpoint")
+                        end
+                    end
+                end
+            end
+        end)
+        
+        warn("[KqzExploitz] Auto TP enabled - Will teleport when object is picked up")
+    end
+end
+
+DesyncButton = Button("Desync (OFF)", ToggleDesync)
+AutoTPButton = Button("Auto TP (OFF)", ToggleAutoTP)
+
+-- Manual Teleport button (one-time use)
+Button("Teleport to Checkpoint", function()
+    if not SavedCheckpoint then
+        warn("[KqzExploitz] No checkpoint set! Use 'Set Checkpoint' first.")
+        return
+    end
+    
     local carpet = GetFlyingCarpet()
-    if not carpet then return end
-
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local hum = player.Character and player.Character:FindFirstChild("Humanoid")
-
-    if hrp and hum then
-        hum:ChangeState(Enum.HumanoidStateType.Physics)
-        hrp.Velocity = Vector3.zero
-        hrp.CFrame = SavedPosition
-        task.wait()
-        hum:ChangeState(Enum.HumanoidStateType.Running)
+    if not carpet then
+        warn("[KqzExploitz] Flying carpet required!")
+        return
+    end
+    
+    -- Use smooth teleport with carpet
+    if SmoothTeleportWithCarpet(SavedCheckpoint) then
+        warn("[KqzExploitz] Teleported to checkpoint")
+    else
+        warn("[KqzExploitz] Teleport failed!")
     end
 end)
 
-print("[KqzExploitz] Loaded successfully")
+-- Cleanup on character removal
+player.CharacterRemoving:Connect(function()
+    if DesyncEnabled then
+        DesyncEnabled = false
+        if DesyncConnection then
+            DesyncConnection:Disconnect()
+            DesyncConnection = nil
+        end
+        ServerPosition = nil
+        if ServerPositionIndicator then
+            ServerPositionIndicator:Destroy()
+            ServerPositionIndicator = nil
+        end
+    end
+    
+    if AutoTPActive then
+        AutoTPActive = false
+        if AutoTPConnection then
+            AutoTPConnection:Disconnect()
+            AutoTPConnection = nil
+        end
+    end
+end)
+
+print("[KqzExploitz] Loaded successfully - Anti-Cheat Bypass Active")
