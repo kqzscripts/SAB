@@ -1,12 +1,13 @@
 --[[
     KqzExploitz - Steal a Brainrot
-    Features: Set Checkpoint, Auto TP (Carpet Bypass)
+    Features: Set Checkpoint (Ghost), Auto TP (Carpet Bypass)
     Colors: Grey, Dark Grey, White
     Compatibility: PC, Mobile, Console
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
@@ -104,7 +105,7 @@ Layout.Parent = Container
 local function CreateButton(text)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 55)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50) -- Shop look
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     btn.Text = text
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
@@ -126,7 +127,7 @@ end
 local CheckpointButton = CreateButton("Set Checkpoint")
 local AutoTPButton = CreateButton("Auto TP: OFF")
 
--- Visualizer Function
+-- Visualizer Function (Transparent Ghost)
 local function CreateCheckpointVisual(pos)
     if checkpointGhost then checkpointGhost:Destroy() end
     
@@ -136,15 +137,30 @@ local function CreateCheckpointVisual(pos)
     checkpointGhost.Position = pos + Vector3.new(0, 3, 0)
     checkpointGhost.Anchored = true
     checkpointGhost.CanCollide = false
+    checkpointGhost.Transparency = 0.5 -- See through
     checkpointGhost.Color = Color3.fromRGB(180, 180, 180) -- Light Grey
     checkpointGhost.Material = Enum.Material.SmoothPlastic
     checkpointGhost.Parent = workspace
     
-    -- Visual Rounding Simulation
     local mesh = Instance.new("SpecialMesh")
     mesh.MeshType = Enum.MeshType.Brick
-    mesh.Scale = Vector3.new(1, 1, 1)
     mesh.Parent = checkpointGhost
+
+    -- Internal Label
+    local Billboard = Instance.new("BillboardGui")
+    Billboard.Size = UDim2.new(0, 200, 0, 50)
+    Billboard.Adornee = checkpointGhost
+    Billboard.AlwaysOnTop = true
+    Billboard.Parent = checkpointGhost
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = "Server Position"
+    Label.TextColor3 = Color3.fromRGB(120, 120, 120) -- Grey label
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 14
+    Label.Parent = Billboard
 end
 
 -- Core Logic
@@ -156,22 +172,40 @@ local function SecureTeleport()
         if carpet.Parent ~= character then
             carpet.Parent = character
         end
-        -- Prevent detections
+        -- Anti-cheat mitigation (Resets)
         rootPart.Velocity = Vector3.new(0, 0, 0)
         rootPart.RotVelocity = Vector3.new(0, 0, 0)
         
-        -- Instant Teleport
+        -- Instant Teleport to the exact anchor
         rootPart.CFrame = CFrame.new(checkpointPosition + Vector3.new(0, 3, 0))
     end
 end
 
-RunService.Heartbeat:Connect(function()
-    if autoTPEnabled or checkpointPosition then
-        -- Anti-cheat mitigation
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        rootPart.RotVelocity = Vector3.new(0, 0, 0)
-    end
+-- Monitor for pickups/steals (Smart Detection)
+local function MonitorInventory()
+    -- Steal a Brainrot often uses Weld or direct parent to character for held objects
+    character.ChildAdded:Connect(function(child)
+        if autoTPEnabled then
+            -- If it's a Tool, it's a pickup
+            if child:IsA("Tool") then
+                task.wait(0.05)
+                SecureTeleport()
+            -- If it's a Model/BasePart that isn't standard character parts, it's likely a held object
+            elseif (child:IsA("Model") or child:IsA("BasePart")) and not child.Name:match("Hair") and not child.Name:match("Accessory") then
+                task.wait(0.05)
+                SecureTeleport()
+            end
+        end
+    end)
+end
+
+-- Character Handling
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    MonitorInventory()
 end)
+MonitorInventory()
 
 CheckpointButton.MouseButton1Click:Connect(function()
     checkpointPosition = rootPart.Position
@@ -185,14 +219,6 @@ AutoTPButton.MouseButton1Click:Connect(function()
     autoTPEnabled = not autoTPEnabled
     AutoTPButton.Text = autoTPEnabled and "Auto TP: ON" or "Auto TP: OFF"
     AutoTPButton.BackgroundColor3 = autoTPEnabled and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(50, 50, 50)
-end)
-
--- Brainrot Pickup Detection
-character.ChildAdded:Connect(function(child)
-    if autoTPEnabled and child.Name:lower():find("brainrot") then
-        task.wait(0.05) -- Fast trigger
-        SecureTeleport()
-    end
 end)
 
 -- UI Controls
@@ -221,4 +247,4 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end end)
 
-print("KqzExploitz Ready")
+print("KqzExploitz V2.2 Ready")
