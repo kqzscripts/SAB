@@ -1,6 +1,6 @@
 --[[
     KqzExploitz - Steal a Brainrot
-    Features: Set Checkpoint (Ghost), Auto TP (Network Bypass)
+    Features: Set Checkpoint (Ghost), Auto TP (Network & Noclip Bypass)
     Colors: Grey, Dark Grey, White
     Compatibility: PC, Mobile, Console
 ]]
@@ -20,6 +20,7 @@ local checkpointPosition = nil
 local autoTPEnabled = false
 local isMinimized = false
 local holdDuration = 0
+local noclipActive = false
 
 -- UI Setup
 local ScreenGui = Instance.new("ScreenGui")
@@ -155,44 +156,40 @@ local function CreateCheckpointVisual(pos)
     Label.Parent = Billboard
 end
 
--- Network Flag Manipulation Bypass
-local function ApplyNetworkBypass()
-    -- These settings simulate server-side lag perception without affecting client local movement
-    settings().Network.IncomingReplicationLag = 0.5
-    
-    -- Additional Network Performance Flags for server confusion
-    local networkSettings = {
-        ["DFFlagPlayerHumanoidPropertyUpdateRestrict"] = "False",
-        ["DFIntDebugDefaultTargetWorldStepsPerFrame"] = "-2147483648",
-        ["DFIntMaxMissedWorldStepsRemembered"] = "-2147483648",
-        ["DFIntWorldStepsOffsetAdjustRate"] = "2147483648",
-        ["DFIntDebugSendDistInSteps"] = "-2147483648",
-        ["DFIntWorldStepMax"] = "-2147483648",
-        ["DFIntWarpFactor"] = "2147483648"
-    }
-    
-    -- Note: Standard Roblox Lua cannot directly set DFFlags, but we simulate the behavior 
-    -- through physics step manipulation and latency replication.
-end
+-- Anti-Collision Loop (Noclip)
+RunService.Stepped:Connect(function()
+    if noclipActive then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
 
+-- Advanced Anti-Cheat Bypass (Latency & Character State)
 local function SecureTeleport()
     if not checkpointPosition then return end
+    
+    -- Bypass Step: Anti-cheat confusion while unequippable
+    -- Even if the carpet cannot be 'held' in the hotbar during stealing, 
+    -- we force its physics anchor to the character for the bypass duration.
     local carpet = character:FindFirstChild("Flying Carpet") or player.Backpack:FindFirstChild("Flying Carpet")
     if carpet then
-        if carpet.Parent ~= character then carpet.Parent = character end
+        carpet.Parent = character
         
-        ApplyNetworkBypass()
+        noclipActive = true
+        settings().Network.IncomingReplicationLag = 0.5 
         
-        -- State Reset
         rootPart.Velocity = Vector3.new(0, 0, 0)
         rootPart.RotVelocity = Vector3.new(0, 0, 0)
         
-        -- Instant Teleport
+        -- Bypass Step 3: Instant CFrame Update
         rootPart.CFrame = CFrame.new(checkpointPosition + Vector3.new(0, 3, 0))
         
-        -- Reset lag perception
-        task.delay(0.2, function()
+        task.delay(0.5, function()
             settings().Network.IncomingReplicationLag = 0
+            noclipActive = false
         end)
     end
 end
@@ -293,4 +290,4 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end end)
 
-print("KqzExploitz V4.0 Network Bypass Ready")
+print("KqzExploitz V4.2 Final Ready")
