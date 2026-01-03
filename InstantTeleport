@@ -8,8 +8,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -31,7 +30,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 300, 0, 350)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
-MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35) -- Dark Grey
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 
@@ -111,16 +110,13 @@ local function CreateButton(text)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 16
     btn.Parent = Container
-    
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, 8)
     c.Parent = btn
-    
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(70, 70, 70)
     stroke.Thickness = 2
     stroke.Parent = btn
-    
     return btn
 end
 
@@ -130,34 +126,29 @@ local AutoTPButton = CreateButton("Auto TP: OFF")
 -- Visualizer Function (Transparent Ghost)
 local function CreateCheckpointVisual(pos)
     if checkpointGhost then checkpointGhost:Destroy() end
-    
     checkpointGhost = Instance.new("Part")
     checkpointGhost.Name = "CheckpointGhost"
     checkpointGhost.Size = Vector3.new(2, 6, 2)
     checkpointGhost.Position = pos + Vector3.new(0, 3, 0)
     checkpointGhost.Anchored = true
     checkpointGhost.CanCollide = false
-    checkpointGhost.Transparency = 0.5 -- See through
-    checkpointGhost.Color = Color3.fromRGB(180, 180, 180) -- Light Grey
+    checkpointGhost.Transparency = 0.5
+    checkpointGhost.Color = Color3.fromRGB(180, 180, 180)
     checkpointGhost.Material = Enum.Material.SmoothPlastic
     checkpointGhost.Parent = workspace
-    
     local mesh = Instance.new("SpecialMesh")
     mesh.MeshType = Enum.MeshType.Brick
     mesh.Parent = checkpointGhost
-
-    -- Internal Label
     local Billboard = Instance.new("BillboardGui")
     Billboard.Size = UDim2.new(0, 200, 0, 50)
     Billboard.Adornee = checkpointGhost
     Billboard.AlwaysOnTop = true
     Billboard.Parent = checkpointGhost
-    
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(1, 0, 1, 0)
     Label.BackgroundTransparency = 1
     Label.Text = "Server Position"
-    Label.TextColor3 = Color3.fromRGB(120, 120, 120) -- Grey label
+    Label.TextColor3 = Color3.fromRGB(120, 120, 120)
     Label.Font = Enum.Font.GothamBold
     Label.TextSize = 14
     Label.Parent = Billboard
@@ -166,32 +157,57 @@ end
 -- Core Logic
 local function SecureTeleport()
     if not checkpointPosition then return end
-    
     local carpet = character:FindFirstChild("Flying Carpet") or player.Backpack:FindFirstChild("Flying Carpet")
     if carpet then
-        if carpet.Parent ~= character then
-            carpet.Parent = character
-        end
-        -- Anti-cheat mitigation (Resets)
+        if carpet.Parent ~= character then carpet.Parent = character end
         rootPart.Velocity = Vector3.new(0, 0, 0)
         rootPart.RotVelocity = Vector3.new(0, 0, 0)
-        
-        -- Instant Teleport to the exact anchor
         rootPart.CFrame = CFrame.new(checkpointPosition + Vector3.new(0, 3, 0))
     end
 end
 
--- Monitor for pickups/steals (Smart Detection)
-local function MonitorInventory()
-    -- Steal a Brainrot often uses Weld or direct parent to character for held objects
-    character.ChildAdded:Connect(function(child)
+-- Smart Detection for Stealing Interaction
+local function CheckForStolenObject()
+    for _, child in pairs(character:GetChildren()) do
+        if (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Tool")) and not child:IsDescendantOf(player) and not child.Name:match("Hair") and not child.Name:match("Accessory") then
+            return true
+        end
+    end
+    return false
+end
+
+-- Detection logic for "End of Interaction"
+local function MonitorInteraction()
+    -- Detect ProximityPrompt (Finished Holding)
+    ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
         if autoTPEnabled then
-            -- If it's a Tool, it's a pickup
-            if child:IsA("Tool") then
-                task.wait(0.05)
-                SecureTeleport()
-            -- If it's a Model/BasePart that isn't standard character parts, it's likely a held object
-            elseif (child:IsA("Model") or child:IsA("BasePart")) and not child.Name:match("Hair") and not child.Name:match("Accessory") then
+            task.wait(0.1)
+            if CheckForStolenObject() then SecureTeleport() end
+        end
+    end)
+
+    -- PC Input Detection (Finished Holding E or Right Click)
+    UserInputService.InputEnded:Connect(function(input, processed)
+        if autoTPEnabled then
+            if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton2 then
+                task.wait(0.2)
+                if CheckForStolenObject() then SecureTeleport() end
+            end
+        end
+    end)
+
+    -- Mobile Touch Detection (Finished Touchpad Holding)
+    UserInputService.TouchEnded:Connect(function(touch, processed)
+        if autoTPEnabled then
+            task.wait(0.2)
+            if CheckForStolenObject() then SecureTeleport() end
+        end
+    end)
+    
+    -- Final fallback to ensure teleport happens once possession is confirmed
+    character.ChildAdded:Connect(function(child)
+        if autoTPEnabled and (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Tool")) then
+            if not child.Name:match("Hair") and not child.Name:match("Accessory") then
                 task.wait(0.05)
                 SecureTeleport()
             end
@@ -199,13 +215,12 @@ local function MonitorInventory()
     end)
 end
 
--- Character Handling
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
     rootPart = character:WaitForChild("HumanoidRootPart")
-    MonitorInventory()
+    MonitorInteraction()
 end)
-MonitorInventory()
+MonitorInteraction()
 
 CheckpointButton.MouseButton1Click:Connect(function()
     checkpointPosition = rootPart.Position
@@ -222,10 +237,7 @@ AutoTPButton.MouseButton1Click:Connect(function()
 end)
 
 -- UI Controls
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 MinBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     Container.Visible = not isMinimized
@@ -247,4 +259,4 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end end)
 
-print("KqzExploitz V2.2 Ready")
+print("KqzExploitz V3.1 Final Ready")
