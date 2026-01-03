@@ -1,161 +1,153 @@
--- KqzExploitz
+-- Kqz Utility Hub (2025 BYPASS EDITION)
 -- Features: Set Checkpoint, Auto TP, Desync
+-- Optimized for: Steal a Brainrot / Bunni.lol
 -- UI: Grey / Dark Grey / White
 -- Anti-Cheat Bypass Enabled (2025 Optimized)
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 
 -- ================= STATE =================
-local SavedCheckpoint = nil
-local DesyncEnabled = false
-local ServerPositionIndicator = nil
-local DesyncConnection = nil
-local AutoTPActive = false
-local AutoTPConnection = nil
+local State = {
+    SavedPos = nil,
+    AutoTP = false,
+    CheckpointVisual = nil,
+    DesyncEnabled = false,
+    DesyncConnection = nil,
+    AutoTPConnection = nil
+}
 
--- ================= CLEANUP =================
-local existing = CoreGui:FindFirstChild("KqzExploitzUI")
+-- ================= GUI SETUP =================
+-- Cleanup
+local existing = CoreGui:FindFirstChild("KqzUtilityHub")
 if existing then existing:Destroy() end
 
 local workspace = game:GetService("Workspace")
 local oldIndicator = workspace:FindFirstChild("KqzExploitz_Checkpoint")
 if oldIndicator then oldIndicator:Destroy() end
 
--- ================= GUI =================
 local gui = Instance.new("ScreenGui")
-gui.Name = "KqzExploitzUI"
-gui.ResetOnSpawn = false
+gui.Name = "KqzUtilityHub"
 gui.Parent = CoreGui
 gui.DisplayOrder = 999999
+gui.ResetOnSpawn = false
 
 pcall(function() gui.IgnoreGuiInset = true end)
 
 local Main = Instance.new("Frame", gui)
-Main.Size = UDim2.new(0, 320, 0, 310)
+Main.Name = "MainFrame"
+Main.Size = UDim2.new(0, 330, 0, 320)
 Main.Position = UDim2.fromScale(0.5, 0.5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Main.Active = true
 Instance.new("UICorner", Main)
 
-local Minimized = false
-
--- ================= DRAG =================
+-- Dragging Logic
 do
-    local dragging, startPos, startInput
+    local dragging, dragStart, startPos
     Main.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            startInput = i.Position
+            dragStart = i.Position
             startPos = Main.Position
             i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if i.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-
     UIS.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            local delta = i.Position - startInput
+            local delta = i.Position - dragStart
             Main.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
         end
     end)
 end
 
--- ================= TITLE BAR =================
-local Title = Instance.new("Frame", Main)
-Title.Size = UDim2.new(1, 0, 0, 36)
-Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Instance.new("UICorner", Title)
+-- Layout Constants
+local TITLE_HEIGHT = 35
+local FOOTER_HEIGHT = 65
 
-local TitleText = Instance.new("TextLabel", Title)
-TitleText.Size = UDim2.new(1, -100, 1, 0)
+-- Title Bar
+local TitleBar = Instance.new("Frame", Main)
+TitleBar.Size = UDim2.new(1, 0, 0, TITLE_HEIGHT)
+TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Instance.new("UICorner", TitleBar)
+
+local TitleText = Instance.new("TextLabel", TitleBar)
+TitleText.Size = UDim2.new(1, -70, 1, 0)
 TitleText.Position = UDim2.new(0, 12, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "KqzExploitz"
+TitleText.Text = "Kqz Utility Hub"
 TitleText.Font = Enum.Font.GothamBold
 TitleText.TextSize = 16
 TitleText.TextColor3 = Color3.new(1, 1, 1)
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 
-local Minimize = Instance.new("TextButton", Title)
-Minimize.Size = UDim2.new(0, 22, 0, 22)
-Minimize.Position = UDim2.new(1, -56, 0, 7)
-Minimize.Text = "_"
-Minimize.Font = Enum.Font.GothamBold
-Minimize.TextSize = 14
-Minimize.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-Minimize.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", Minimize)
-
-local Content = Instance.new("Frame", Main)
-Content.Position = UDim2.new(0, 10, 0, 50)
-Content.Size = UDim2.new(1, -20, 1, -60)
+-- Content Area (Scrolling)
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Name = "ContentFrame"
+Content.Position = UDim2.new(0, 10, 0, TITLE_HEIGHT + 10)
+Content.Size = UDim2.new(1, -20, 1, -(TITLE_HEIGHT + FOOTER_HEIGHT + 20))
 Content.BackgroundTransparency = 1
-Content.Visible = true
+Content.CanvasSize = UDim2.new()
+Content.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+Content.ScrollBarThickness = 3
+Content.ZIndex = 5
 
-Minimize.MouseButton1Click:Connect(function()
-    Minimized = not Minimized
-    if Minimized then
-        Main.Size = UDim2.new(0, 320, 0, 36)
-        Content.Visible = false
-    else
-        Main.Size = UDim2.new(0, 320, 0, 310)
-        Content.Visible = true
-    end
-end)
+local Layout = Instance.new("UIListLayout", Content)
+Layout.Padding = UDim.new(0, 8)
 
-local Close = Instance.new("TextButton", Title)
-Close.Size = UDim2.new(0, 22, 0, 22)
-Close.Position = UDim2.new(1, -28, 0, 7)
-Close.Text = "X"
-Close.Font = Enum.Font.GothamBold
-Close.TextSize = 14
-Close.BackgroundColor3 = Color3.fromRGB(170, 60, 60)
-Close.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", Close)
+-- Footer (Player Info)
+local Footer = Instance.new("Frame", Main)
+Footer.Name = "FooterFrame"
+Footer.Size = UDim2.new(1, -20, 0, FOOTER_HEIGHT)
+Footer.Position = UDim2.new(0, 10, 1, -(FOOTER_HEIGHT + 5))
+Footer.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Footer.ZIndex = 2
+Instance.new("UICorner", Footer)
 
-Close.MouseButton1Click:Connect(function()
-    gui:Destroy()
-    if ServerPositionIndicator then ServerPositionIndicator:Destroy() end
-end)
+local UserIDLabel = Instance.new("TextLabel", Footer)
+UserIDLabel.Size = UDim2.new(1, 0, 1, 0)
+UserIDLabel.BackgroundTransparency = 1
+UserIDLabel.Text = "UserId: " .. player.UserId
+UserIDLabel.Font = Enum.Font.Gotham
+UserIDLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+UserIDLabel.TextSize = 14
 
-local layout = Instance.new("UIListLayout", Content)
-layout.Padding = UDim.new(0, 10)
-
--- ================= HELPERS =================
-local function Button(text, callback)
+-- ================= UI HELPERS =================
+local function CreateButton(text, callback)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, 0, 0, 42)
+    b.Size = UDim2.new(1, 0, 0, 38)
+    b.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
     b.Text = text
     b.Font = Enum.Font.GothamSemibold
     b.TextSize = 14
-    b.TextColor3 = Color3.new(1,1,1)
-    b.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.ZIndex = 6
     Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(callback)
+    b.MouseButton1Click:Connect(function() callback(b) end)
     return b
 end
 
 local function CreateToggle(text, callback)
-    local enabled = false
-    local b = Button(text .. ": OFF", function()
-        enabled = not enabled
-        callback(enabled)
+    local on = false
+    local b = CreateButton(text .. " : OFF", function(btn)
+        on = not on
+        btn.Text = text .. " : " .. (on and "ON" or "OFF")
+        TweenService:Create(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = on and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(55, 55, 55)
+        }):Play()
+        callback(on)
     end)
-    return b, function(state)
-        enabled = state
-        b.Text = text .. ": " .. (enabled and "ON" or "OFF")
-        b.BackgroundColor3 = enabled and Color3.fromRGB(85, 85, 85) or Color3.fromRGB(60, 60, 60)
-    end
+    return b
 end
 
 -- ================= BYPASS HELPERS =================
@@ -167,7 +159,7 @@ local function GetCarpet()
 end
 
 local function CreateVisual(pos)
-    if ServerPositionIndicator then ServerPositionIndicator:Destroy() end
+    if State.CheckpointVisual then State.CheckpointVisual:Destroy() end
     local char = player.Character
     if not char then return end
     local hum = char:FindFirstChild("Humanoid")
@@ -188,22 +180,22 @@ local function CreateVisual(pos)
     mesh.MeshType = Enum.MeshType.Brick
     mesh.Parent = indicator
 
-    ServerPositionIndicator = indicator
+    State.CheckpointVisual = indicator
 end
 
 -- ================= FEATURES =================
 
--- SET CHECKPOINT
-local setBtn = Button("Set Checkpoint", function()
+-- Set Checkpoint
+CreateButton("Set Checkpoint", function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then
-        SavedCheckpoint = hrp.Position
-        CreateVisual(SavedCheckpoint)
+        State.SavedPos = hrp.Position
+        CreateVisual(State.SavedPos)
         
         -- Anti-Die / Desync Jitter
-        if DesyncConnection then DesyncConnection:Disconnect() end
-        DesyncConnection = RunService.Heartbeat:Connect(function()
+        if State.DesyncConnection then State.DesyncConnection:Disconnect() end
+        State.DesyncConnection = RunService.Heartbeat:Connect(function()
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0.05, 0)
             end
@@ -211,16 +203,16 @@ local setBtn = Button("Set Checkpoint", function()
     end
 end)
 
--- AUTO TP
-local autoTpBtn, updateAutoTp = CreateToggle("Auto TP", function(s)
-    AutoTPActive = s
-    updateAutoTp(s)
-    if s then
-        task.spawn(function()
-            while AutoTPActive do
+-- Auto TP
+CreateToggle("Auto TP", function(v)
+    State.AutoTP = v
+    if v then
+        if State.AutoTPConnection then State.AutoTPConnection:Disconnect() end
+        State.AutoTPConnection = task.spawn(function()
+            while State.AutoTP do
                 local char = player.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if hrp and SavedCheckpoint then
+                if hrp and State.SavedPos then
                     -- Detect steal (holding tool that isn't carpet)
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool and tool.Name ~= "Flying Carpet" then
@@ -231,7 +223,7 @@ local autoTpBtn, updateAutoTp = CreateToggle("Auto TP", function(s)
                             task.wait(0.05)
                             
                             -- Instant teleport bypass
-                            hrp.CFrame = CFrame.new(SavedCheckpoint)
+                            hrp.CFrame = CFrame.new(State.SavedPos)
                             hrp.Velocity = Vector3.new(0, 0, 0)
                         end
                     end
@@ -239,20 +231,51 @@ local autoTpBtn, updateAutoTp = CreateToggle("Auto TP", function(s)
                 task.wait(0.1)
             end
         end)
+    else
+        if State.AutoTPConnection then 
+            State.AutoTPConnection:Disconnect() 
+            State.AutoTPConnection = nil
+        end
     end
 end)
 
--- DESYNC (Visual Toggle only as per request to keep it)
-local desyncBtn, updateDesync = CreateToggle("Desync", function(s)
-    DesyncEnabled = s
-    updateDesync(s)
+-- Desync
+CreateToggle("Desync", function(v)
+    State.DesyncEnabled = v
+    if v then
+        -- Start desync jitter when enabled
+        if State.DesyncConnection then State.DesyncConnection:Disconnect() end
+        State.DesyncConnection = RunService.Heartbeat:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0.05, 0)
+            end
+        end)
+    else
+        -- Stop desync jitter when disabled (unless checkpoint is set)
+        if not State.SavedPos and State.DesyncConnection then
+            State.DesyncConnection:Disconnect()
+            State.DesyncConnection = nil
+        end
+    end
 end)
 
--- ================= KEYBIND =================
+-- FPS Boost
+CreateButton("FPS Boost", function()
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then v.Enabled = false end
+    end
+end)
+
+-- Rejoin
+CreateButton("Rejoin", function()
+    TeleportService:Teleport(game.PlaceId, player)
+end)
+
+-- ================= TOGGLE KEYBIND =================
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         gui.Enabled = not gui.Enabled
     end
 end)
 
-print("[KqzExploitz] Hub Loaded Successfully")
+print("[KqzHub] Final Bypass Hub Initialized")
