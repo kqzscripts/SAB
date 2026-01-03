@@ -1,6 +1,6 @@
 --[[
     KqzExploitz - Steal a Brainrot
-    Features: Set Checkpoint (Ghost), Auto TP (Carpet Bypass)
+    Features: Set Checkpoint (Ghost), Auto TP (Server Latency Bypass)
     Colors: Grey, Dark Grey, White
     Compatibility: PC, Mobile, Console
 ]]
@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local NetworkClient = game:GetService("NetworkClient")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -19,6 +20,8 @@ local checkpointGhost = nil
 local checkpointPosition = nil
 local autoTPEnabled = false
 local isMinimized = false
+local holdDuration = 0
+local IS_HOLDING = false
 
 -- UI Setup
 local ScreenGui = Instance.new("ScreenGui")
@@ -154,19 +157,32 @@ local function CreateCheckpointVisual(pos)
     Label.Parent = Billboard
 end
 
--- Core Logic
+-- Advanced Anti-Cheat Bypass (Latency & Character State)
 local function SecureTeleport()
     if not checkpointPosition then return end
     local carpet = character:FindFirstChild("Flying Carpet") or player.Backpack:FindFirstChild("Flying Carpet")
     if carpet then
         if carpet.Parent ~= character then carpet.Parent = character end
+        
+        -- Bypass Step 1: Simulate Server-Side Latency
+        -- This confuses the server's movement validation without lagging the player locally
+        settings().Network.IncomingReplicationLag = 0.5 
+        
+        -- Bypass Step 2: Character State Manipulation
         rootPart.Velocity = Vector3.new(0, 0, 0)
         rootPart.RotVelocity = Vector3.new(0, 0, 0)
+        
+        -- Bypass Step 3: Instant CFrame Update
         rootPart.CFrame = CFrame.new(checkpointPosition + Vector3.new(0, 3, 0))
+        
+        -- Reset lag after a short window
+        task.delay(0.2, function()
+            settings().Network.IncomingReplicationLag = 0
+        end)
     end
 end
 
--- Smart Detection for Stealing Interaction
+-- Possession Check
 local function CheckForStolenObject()
     for _, child in pairs(character:GetChildren()) do
         if (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Tool")) and not child:IsDescendantOf(player) and not child.Name:match("Hair") and not child.Name:match("Accessory") then
@@ -176,9 +192,9 @@ local function CheckForStolenObject()
     return false
 end
 
--- Detection logic for "End of Interaction"
+-- Interaction Monitor (Hold Logic)
 local function MonitorInteraction()
-    -- Detect ProximityPrompt (Finished Holding)
+    -- ProximityPrompt (Natural Hold)
     ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
         if autoTPEnabled then
             task.wait(0.1)
@@ -186,36 +202,42 @@ local function MonitorInteraction()
         end
     end)
 
-    -- PC Input Detection (ONLY E or Right Click)
-    UserInputService.InputEnded:Connect(function(input, processed)
-        -- Ignore processed inputs (like typing in chat)
+    -- PC Hold Logic (E or Right Click)
+    UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
-        
-        if autoTPEnabled then
-            -- Strictly check for E or RightClick
-            if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton2 then
+            IS_HOLDING = true
+            holdDuration = tick()
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input, processed)
+        if processed then return end
+        if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton2 then
+            local duration = tick() - holdDuration
+            IS_HOLDING = false
+            -- Only trigger if held for at least 0.3s (ignores taps)
+            if autoTPEnabled and duration > 0.3 then
                 task.wait(0.2)
                 if CheckForStolenObject() then SecureTeleport() end
             end
         end
     end)
 
-    -- Mobile Touch Detection
+    -- Mobile Touch Hold Logic
+    UserInputService.TouchStarted:Connect(function(touch, processed)
+        if processed then return end
+        IS_HOLDING = true
+        holdDuration = tick()
+    end)
+
     UserInputService.TouchEnded:Connect(function(touch, processed)
         if processed then return end
-        if autoTPEnabled then
+        local duration = tick() - holdDuration
+        IS_HOLDING = false
+        if autoTPEnabled and duration > 0.3 then
             task.wait(0.2)
             if CheckForStolenObject() then SecureTeleport() end
-        end
-    end)
-    
-    -- Fallback for direct inventory changes
-    character.ChildAdded:Connect(function(child)
-        if autoTPEnabled and (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Tool")) then
-            if not child.Name:match("Hair") and not child.Name:match("Accessory") then
-                task.wait(0.05)
-                SecureTeleport()
-            end
         end
     end)
 end
@@ -264,4 +286,4 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end end)
 
-print("KqzExploitz V3.2 Final Ready")
+print("KqzExploitz V3.3 Bypass Optimized")
