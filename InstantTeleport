@@ -186,9 +186,13 @@ local function MonitorInteraction()
         end
     end)
 
-    -- PC Input Detection (Finished Holding E or Right Click)
+    -- PC Input Detection (ONLY E or Right Click)
     UserInputService.InputEnded:Connect(function(input, processed)
+        -- Ignore processed inputs (like typing in chat)
+        if processed then return end
+        
         if autoTPEnabled then
+            -- Strictly check for E or RightClick
             if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton2 then
                 task.wait(0.2)
                 if CheckForStolenObject() then SecureTeleport() end
@@ -196,15 +200,16 @@ local function MonitorInteraction()
         end
     end)
 
-    -- Mobile Touch Detection (Finished Touchpad Holding)
+    -- Mobile Touch Detection
     UserInputService.TouchEnded:Connect(function(touch, processed)
+        if processed then return end
         if autoTPEnabled then
             task.wait(0.2)
             if CheckForStolenObject() then SecureTeleport() end
         end
     end)
     
-    -- Final fallback to ensure teleport happens once possession is confirmed
+    -- Fallback for direct inventory changes
     character.ChildAdded:Connect(function(child)
         if autoTPEnabled and (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Tool")) then
             if not child.Name:match("Hair") and not child.Name:match("Accessory") then
@@ -259,4 +264,4 @@ UserInputService.InputChanged:Connect(function(input) if input == dragInput and 
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end end)
 
-print("KqzExploitz V3.1 Final Ready")
+print("KqzExploitz V3.2 Final Ready")
